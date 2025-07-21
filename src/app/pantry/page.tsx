@@ -1077,25 +1077,24 @@ export default function PantryPage() {
                               <SelectTrigger className="w-full sm:w-24">
                                 <SelectValue />
                               </SelectTrigger>
-                            <SelectContent>
-                              {standardUnits.map(unit => (
-                                <SelectItem key={unit} value={unit}>
-                                  {unit}
-                                </SelectItem>
-                              ))}
-                            </SelectContent>
-                          </Select>
-                          <Button
-                            variant="ghost"
-                            size="sm"
-                            onClick={() => removeBulkItem('new', index)}
-                            className="ml-auto sm:ml-0"
-                          >
-                            ×
-                          </Button>
+                              <SelectContent>
+                                {standardUnits.map(unit => (
+                                  <SelectItem key={unit} value={unit}>
+                                    {unit}
+                                  </SelectItem>
+                                ))}
+                              </SelectContent>
+                            </Select>
+                            <Button
+                              variant="ghost"
+                              size="sm"
+                              onClick={() => removeBulkItem('new', index)}
+                              className="ml-auto sm:ml-0"
+                            >
+                              ×
+                            </Button>
+                          </div>
                         </div>
-                      </div>
-                    </div>
                       ))}
                     </div>
                   </div>
