@@ -973,10 +973,24 @@ export default function PantryPage() {
                         className={`relative inline-flex h-5 w-9 items-center rounded-full transition-colors ${
                           unitSystem === 'metric' ? 'bg-blue-600' : 'bg-gray-200'
                         }`}
-                        onClick={() => {
+                        onClick={async () => {
                           const newSystem = unitSystem === 'metric' ? 'imperial' : 'metric';
                           setUnitSystem(newSystem);
-                          localStorage.setItem('unitSystem', newSystem);
+                          
+                          // Save to database if user is logged in
+                          if (user) {
+                            try {
+                              await supabase
+                                .from('profiles')
+                                .update({ 
+                                  unit_system: newSystem,
+                                  updated_at: new Date().toISOString()
+                                })
+                                .eq('id', user.id);
+                            } catch (error) {
+                              console.error('Error updating unit system:', error);
+                            }
+                          }
                         }}
                       >
                         <span

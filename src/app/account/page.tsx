@@ -71,6 +71,10 @@ export default function AccountPage() {
   
   // Delete account
   const [deleteConfirm, setDeleteConfirm] = useState('')
+  
+  // Drag state for preferred units
+  const [draggedUnit, setDraggedUnit] = useState<string | null>(null)
+  const [dragOverUnit, setDragOverUnit] = useState<string | null>(null)
 
   // Redirect if not authenticated
   useEffect(() => {
@@ -291,6 +295,41 @@ export default function AccountPage() {
   const removeUnit = (unit: string) => {
     setPreferredUnits(prev => prev.filter(u => u !== unit))
   }
+  
+  // Drag and drop handlers for preferred units
+  const handleDragStart = (e: React.DragEvent, unit: string) => {
+    setDraggedUnit(unit)
+    e.dataTransfer.effectAllowed = 'move'
+  }
+  
+  const handleDragOver = (e: React.DragEvent, unit: string) => {
+    e.preventDefault()
+    e.dataTransfer.dropEffect = 'move'
+    setDragOverUnit(unit)
+  }
+  
+  const handleDrop = (e: React.DragEvent, dropUnit: string) => {
+    e.preventDefault()
+    if (!draggedUnit || draggedUnit === dropUnit) return
+    
+    const newUnits = [...preferredUnits]
+    const draggedIndex = newUnits.indexOf(draggedUnit)
+    const dropIndex = newUnits.indexOf(dropUnit)
+    
+    // Remove dragged unit from its position
+    newUnits.splice(draggedIndex, 1)
+    // Insert at new position
+    newUnits.splice(dropIndex, 0, draggedUnit)
+    
+    setPreferredUnits(newUnits)
+    setDraggedUnit(null)
+    setDragOverUnit(null)
+  }
+  
+  const handleDragEnd = () => {
+    setDraggedUnit(null)
+    setDragOverUnit(null)
+  }
 
   if (!user) {
     return null
@@ -490,14 +529,21 @@ export default function AccountPage() {
                     {/* Selected/preferred units */}
                     {preferredUnits.length > 0 && (
                       <div className="mb-4">
-                        <h4 className="text-sm font-medium mb-2">Your Preferred Units:</h4>
+                        <h4 className="text-sm font-medium mb-2">Your Preferred Units (drag to reorder):</h4>
                         <div className="flex flex-wrap gap-2">
                           {preferredUnits.map(unit => (
                             <div
                               key={unit}
-                              className="flex items-center gap-1 bg-blue-100 text-blue-800 px-3 py-1 rounded-full"
+                              className={`flex items-center gap-1 bg-blue-100 text-blue-800 px-3 py-1 rounded-full cursor-move transition-all ${
+                                dragOverUnit === unit ? 'ring-2 ring-blue-400' : ''
+                              }`}
+                              draggable
+                              onDragStart={(e) => handleDragStart(e, unit)}
+                              onDragOver={(e) => handleDragOver(e, unit)}
+                              onDrop={(e) => handleDrop(e, unit)}
+                              onDragEnd={handleDragEnd}
                             >
-                              <span className="text-sm">{unit}</span>
+                              <span className="text-sm select-none">{unit}</span>
                               <button
                                 type="button"
                                 onClick={() => removeUnit(unit)}
