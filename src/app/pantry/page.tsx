@@ -1052,26 +1052,31 @@ export default function PantryPage() {
                     <h3 className="font-semibold mb-3">New Items</h3>
                     <div className="space-y-2">
                       {bulkItems.new.map((item, index) => (
-                        <div key={index} className="flex items-center gap-2 p-2 border rounded">
-                          <span className="text-2xl">{item.emoji || '📦'}</span>
-                          <Input
-                            value={item.name}
-                            onChange={(e) => updateBulkItem('new', index, { name: e.target.value })}
-                            className="flex-1"
-                          />
-                          <Input
-                            type="number"
-                            value={item.quantity}
-                            onChange={(e) => updateBulkItem('new', index, { quantity: parseInt(e.target.value) || 0 })}
-                            className="w-20"
-                          />
-                          <Select
-                            value={item.unit}
-                            onValueChange={(value) => updateBulkItem('new', index, { unit: value })}
-                          >
-                            <SelectTrigger className="w-24">
-                              <SelectValue />
-                            </SelectTrigger>
+                        <div key={index} className="flex flex-col sm:flex-row sm:items-center gap-2 p-3 border rounded">
+                          <div className="flex items-center gap-2 w-full sm:w-auto">
+                            <span className="text-2xl">{item.emoji || '📦'}</span>
+                            <Input
+                              value={item.name}
+                              onChange={(e) => updateBulkItem('new', index, { name: e.target.value })}
+                              className="flex-1"
+                              placeholder="Item name"
+                            />
+                          </div>
+                          <div className="flex gap-2 w-full sm:w-auto">
+                            <Input
+                              type="number"
+                              value={item.quantity}
+                              onChange={(e) => updateBulkItem('new', index, { quantity: parseInt(e.target.value) || 0 })}
+                              className="w-full sm:w-20"
+                              placeholder="Qty"
+                            />
+                            <Select
+                              value={item.unit}
+                              onValueChange={(value) => updateBulkItem('new', index, { unit: value })}
+                            >
+                              <SelectTrigger className="w-full sm:w-24">
+                                <SelectValue />
+                              </SelectTrigger>
                             <SelectContent>
                               {standardUnits.map(unit => (
                                 <SelectItem key={unit} value={unit}>
@@ -1084,10 +1089,13 @@ export default function PantryPage() {
                             variant="ghost"
                             size="sm"
                             onClick={() => removeBulkItem('new', index)}
+                            className="ml-auto sm:ml-0"
                           >
                             ×
                           </Button>
                         </div>
+                      </div>
+                    </div>
                       ))}
                     </div>
                   </div>
@@ -1098,24 +1106,30 @@ export default function PantryPage() {
                     <h3 className="font-semibold mb-3">Update Existing Items</h3>
                     <div className="space-y-2">
                       {bulkItems.existing.map((update, index) => (
-                        <div key={index} className="flex items-center gap-2 p-2 border rounded bg-blue-50">
-                          <span className="text-2xl">{update.item.emoji}</span>
-                          <span className="flex-1">{update.item.name}</span>
-                          <span className="text-sm text-gray-600">
-                            Current: {update.item.quantity} {update.item.unit}
-                          </span>
-                          <span className="text-sm font-semibold">+</span>
-                          <Input
-                            type="number"
-                            value={update.addQuantity}
-                            onChange={(e) => updateBulkItem('existing', index, { addQuantity: parseInt(e.target.value) || 0 })}
-                            className="w-20"
-                          />
-                          <span className="text-sm">{update.item.unit}</span>
+                        <div key={index} className="flex flex-col sm:flex-row sm:items-center gap-2 p-3 border rounded bg-blue-50">
+                          <div className="flex items-center gap-2 w-full sm:w-auto">
+                            <span className="text-2xl">{update.item.emoji}</span>
+                            <span className="flex-1">{update.item.name}</span>
+                          </div>
+                          <div className="flex items-center gap-2 w-full sm:w-auto">
+                            <span className="text-sm text-gray-600">
+                              Current: {update.item.quantity} {update.item.unit}
+                            </span>
+                            <span className="text-sm font-semibold">+</span>
+                            <Input
+                              type="number"
+                              value={update.addQuantity}
+                              onChange={(e) => updateBulkItem('existing', index, { addQuantity: parseInt(e.target.value) || 0 })}
+                              className="w-full sm:w-20"
+                              placeholder="Add"
+                            />
+                            <span className="text-sm">{update.item.unit}</span>
+                          </div>
                           <Button
                             variant="ghost"
                             size="sm"
                             onClick={() => removeBulkItem('existing', index)}
+                            className="ml-auto sm:ml-0"
                           >
                             ×
                           </Button>
@@ -1398,6 +1412,14 @@ export default function PantryPage() {
                     draggable
                     onDragStart={(e) => handleDragStart(e, item)}
                   >
+                    {/* Mobile Drag Handle */}
+                    <div className="md:hidden absolute -top-1 -left-1 z-10">
+                      <div className="w-6 h-6 bg-gray-100/80 rounded-full flex items-center justify-center">
+                        <svg className="w-3 h-3 text-gray-600" viewBox="0 0 24 24" fill="currentColor">
+                          <path d="M9 5h2v2H9V5zm0 4h2v2H9V9zm0 4h2v2H9v-2zm0 4h2v2H9v-2zm4-12h2v2h-2V5zm0 4h2v2h-2V9zm0 4h2v2h-2v-2zm0 4h2v2h-2v-2z"/>
+                        </svg>
+                      </div>
+                    </div>
                     {/* Top Controls: Edit Button and Recipe Checkbox */}
                     <div className="absolute -top-1 -right-1 flex items-center gap-1 z-10">
                       <Button

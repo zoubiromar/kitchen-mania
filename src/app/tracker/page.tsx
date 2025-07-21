@@ -200,15 +200,15 @@ export default function TrackerPage() {
       </div>
 
       {/* Filters */}
-      <div className="flex gap-4 mb-6">
+      <div className="flex flex-col sm:flex-row gap-4 mb-6">
         <Input
           placeholder="Search items..."
           value={searchTerm}
           onChange={(e) => setSearchTerm(e.target.value)}
-          className="max-w-sm"
+          className="w-full sm:max-w-sm"
         />
         <Select value={selectedMerchant} onValueChange={setSelectedMerchant}>
-          <SelectTrigger className="w-[180px]">
+          <SelectTrigger className="w-full sm:w-[180px]">
             <SelectValue placeholder="All Merchants" />
           </SelectTrigger>
           <SelectContent>
@@ -220,7 +220,7 @@ export default function TrackerPage() {
           </SelectContent>
         </Select>
         <Select value={sortBy} onValueChange={setSortBy}>
-          <SelectTrigger className="w-[180px]">
+          <SelectTrigger className="w-full sm:w-[180px]">
             <SelectValue placeholder="Sort by" />
           </SelectTrigger>
           <SelectContent>
@@ -259,7 +259,7 @@ export default function TrackerPage() {
               return (
                 <div
                   key={item.id}
-                  className={`flex items-center justify-between p-3 border rounded-lg transition-colors ${
+                  className={`flex flex-col sm:flex-row sm:items-center sm:justify-between p-3 border rounded-lg transition-colors ${
                     isEditMode ? 'cursor-move' : 'hover:bg-gray-50'
                   } ${dragOverItem?.id === item.id ? 'border-blue-500 bg-blue-50' : ''}`}
                   draggable={isEditMode}
@@ -268,79 +268,84 @@ export default function TrackerPage() {
                   onDrop={isEditMode ? (e) => handleDrop(e, item) : undefined}
                   onDragEnd={isEditMode ? handleDragEnd : undefined}
                 >
-                  {/* Drag Handle and Delete Button in Edit Mode */}
-                  {isEditMode && (
-                    <div className="flex items-center gap-2 mr-3">
-                      <GripVertical className="w-4 h-4 text-gray-400 cursor-grab" />
-                      <Button
-                        size="sm"
-                        variant="ghost"
-                        className="h-6 w-6 p-0 text-red-600 hover:text-red-700 hover:bg-red-50"
-                        onClick={() => handleDeleteItem(item.id)}
-                      >
-                        <Minus className="w-4 h-4" />
-                      </Button>
-                    </div>
-                  )}
-                  
-                  {/* Item Info */}
-                  <div className="flex items-center gap-3 flex-1">
-                    <span className="text-2xl">{emoji}</span>
-                    <div className="flex-1">
-                      <div className="flex items-center gap-2">
-                        <span className="font-medium">{item.name}</span>
-                        {trend && (
-                          <span className={`flex items-center text-xs ${trend.trend === 'up' ? 'text-red-600' : 'text-green-600'}`}>
-                            {trend.trend === 'up' ? <TrendingUp className="w-3 h-3" /> : <TrendingDown className="w-3 h-3" />}
-                            {Math.abs(trend.change).toFixed(1)}%
-                          </span>
-                        )}
+                  <div className="flex items-start sm:items-center w-full">
+                    {/* Drag Handle and Delete Button in Edit Mode */}
+                    {isEditMode && (
+                      <div className="flex items-center gap-2 mr-3">
+                        <GripVertical className="w-4 h-4 text-gray-400 cursor-grab" />
+                        <Button
+                          size="sm"
+                          variant="ghost"
+                          className="h-6 w-6 p-0 text-red-600 hover:text-red-700 hover:bg-red-50"
+                          onClick={() => handleDeleteItem(item.id)}
+                        >
+                          <Minus className="w-4 h-4" />
+                        </Button>
                       </div>
-                      <div className="text-sm text-gray-500">
-                        {item.quantity} {item.unit}
+                    )}
+                    
+                    {/* Item Info */}
+                    <div className="flex items-center gap-3 flex-1">
+                      <span className="text-2xl">{emoji}</span>
+                      <div className="flex-1">
+                        <div className="flex items-center gap-2 flex-wrap">
+                          <span className="font-medium">{item.name}</span>
+                          {trend && (
+                            <span className={`flex items-center text-xs ${trend.trend === 'up' ? 'text-red-600' : 'text-green-600'}`}>
+                              {trend.trend === 'up' ? <TrendingUp className="w-3 h-3" /> : <TrendingDown className="w-3 h-3" />}
+                              {Math.abs(trend.change).toFixed(1)}%
+                            </span>
+                          )}
+                        </div>
+                        <div className="text-sm text-gray-500">
+                          {item.quantity} {item.unit}
+                        </div>
                       </div>
                     </div>
                   </div>
 
-                  {/* Price per Unit */}
-                  <div className="text-right mx-4">
-                    <div className="font-semibold">
-                      ${item.pricePerUnit?.toFixed(2) || 'N/A'} per {item.unit}
+                  {/* Mobile: Stack price and merchant info vertically */}
+                  <div className="flex flex-col sm:flex-row sm:items-center gap-2 sm:gap-4 mt-2 sm:mt-0">
+                    {/* Price per Unit */}
+                    <div className="text-left sm:text-right sm:mx-4">
+                      <div className="font-semibold">
+                        ${item.pricePerUnit?.toFixed(2) || 'N/A'} per {item.unit}
+                      </div>
+                      <div className="text-xs text-gray-500">
+                        Total: ${item.totalPrice?.toFixed(2) || 'N/A'}
+                      </div>
                     </div>
-                    <div className="text-xs text-gray-500">
-                      Total: ${item.totalPrice?.toFixed(2) || 'N/A'}
-                    </div>
-                  </div>
 
-                  {/* Merchant */}
-                  <div className="w-32 text-center">
-                    <div className="font-medium text-sm">{item.merchant}</div>
-                    <div className="text-xs text-gray-500">
-                      {new Date(item.date).toLocaleDateString()}
+                    {/* Merchant */}
+                    <div className="text-left sm:w-32 sm:text-center">
+                      <div className="font-medium text-sm">{item.merchant}</div>
+                      <div className="text-xs text-gray-500">
+                        {new Date(item.date).toLocaleDateString()}
+                      </div>
                     </div>
-                  </div>
 
-                  {/* Actions */}
-                  {!isEditMode && (
-                    <div className="flex gap-2 ml-4">
-                      <Button
-                        variant="ghost"
-                        size="sm"
-                        onClick={() => setEditingItem(item)}
-                      >
-                        <Edit className="w-4 h-4" />
-                      </Button>
-                      {item.receiptImage && (
+                    {/* Actions */}
+                    {!isEditMode && (
+                      <div className="flex gap-2 sm:ml-4 mt-2 sm:mt-0">
                         <Button
                           variant="ghost"
                           size="sm"
-                          onClick={() => setShowReceiptImage(item.receiptImage!)}
+                          onClick={() => setEditingItem(item)}
                         >
-                          <Eye className="w-4 h-4" />
+                          <Edit className="w-4 h-4" />
                         </Button>
-                      )}
-                    </div>
-                  )}
+                        {item.receiptImage && (
+                          <Button
+                            variant="ghost"
+                            size="sm"
+                            onClick={() => setShowReceiptImage(item.receiptImage!)}
+                          >
+                            <Eye className="w-4 h-4" />
+                          </Button>
+                        )}
+                      </div>
+                    )}
+                  </div>
                 </div>
               );
             })}
