@@ -333,6 +333,8 @@ export default function PantryPage() {
   const processBulkText = async (text: string) => {
     if (!text.trim()) return;
     
+    showToast('Processing items...', 'info');
+    
     try {
       const response = await fetch('/api/pantry/parse-text', {
         method: 'POST',
@@ -344,11 +346,16 @@ export default function PantryPage() {
           existingItems: pantryItems.map(item => ({
             name: item.name,
             category: item.category
-          }))
+          })),
+          unitSystem: unitSystem
         }),
       });
       
       const data = await response.json();
+      
+      if (!response.ok) {
+        throw new Error(data.error || 'Failed to parse text');
+      }
       
       if (data.items && data.items.length > 0) {
         const parsedItems: PantryItem[] = [];
@@ -358,7 +365,7 @@ export default function PantryPage() {
           if (parsedItem.exists) {
             // Find the existing item
             const existingItem = pantryItems.find(item => 
-              item.name === parsedItem.name
+              item.name.toLowerCase() === parsedItem.name.toLowerCase()
             );
             
             if (existingItem) {
@@ -399,9 +406,10 @@ export default function PantryPage() {
           });
         }, 100);
         
-        showToast(`Found ${parsedItems.length} new items and ${updates.length} updates`, 'success');
+        const message = `Found ${parsedItems.length} new items and ${updates.length} updates`;
+        showToast(data.warning ? `${message}. ${data.warning}` : message, 'success');
       } else {
-        showToast('No items found to add. Try a different format.', 'info');
+        showToast(data.warning || 'No items found to add. Try a different format.', 'info');
       }
     } catch (error) {
       console.error('Error processing text:', error);
@@ -409,9 +417,17 @@ export default function PantryPage() {
     }
   };
 
-  const processReceiptImage = async (base64Image: string) => {
+  const processReceiptImage = async (dataUrl: string) => {
     setBulkImage(null);
     showToast('Processing receipt...', 'info');
+    
+    if (!dataUrl) {
+      showToast('No image selected', 'error');
+      return;
+    }
+    
+    // Extract base64 from data URL (remove "data:image/...;base64," prefix)
+    const base64Image = dataUrl.includes(',') ? dataUrl.split(',')[1] : dataUrl;
     
     try {
       const response = await fetch('/api/pantry/parse-receipt', {
@@ -420,11 +436,12 @@ export default function PantryPage() {
           'Content-Type': 'application/json',
         },
         body: JSON.stringify({ 
-          image: base64Image,
+          imageBase64: base64Image,
           existingItems: pantryItems.map(item => ({
             name: item.name,
             category: item.category
-          }))
+          })),
+          unitSystem: unitSystem
         }),
       });
       
@@ -493,7 +510,7 @@ export default function PantryPage() {
             total: data.total || 0,
             itemCount: itemsForPriceTracking.length,
             items: itemsForPriceTracking,
-            receiptImage: base64Image
+            receiptImage: dataUrl // Store the full data URL
           };
           
           saveReceiptData(receiptData);
@@ -507,7 +524,7 @@ export default function PantryPage() {
                 store: data.merchant || 'Unknown Store',
                 price: item.price,
                 date: data.date || new Date().toISOString().split('T')[0],
-                receipt_image: base64Image
+                receipt_image: dataUrl // Store the full data URL
               }]
             });
           });
