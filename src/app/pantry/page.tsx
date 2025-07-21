@@ -416,10 +416,13 @@ export default function PantryPage() {
       const updates: {item: PantryItem, addQuantity: number}[] = [];
       
       lines.forEach(line => {
-        const match = line.match(/^(\d+(?:\.\d+)?)\s*([a-zA-Z]+)?\s+(.+)$/);
+        // Try multiple patterns to match different formats
+        let matched = false;
+        
+        // Pattern 1: "2 lbs chicken" or "2 chicken"
+        let match = line.match(/^(\d+(?:\.\d+)?)\s*([a-zA-Z]+)?\s+(.+)$/);
         if (match) {
-          const [, quantity, unit = 'pcs', name] = match;
-          
+          const [, quantity, unit, name] = match;
           const existingItem = pantryItems.find(item => 
             item.name.toLowerCase() === name.toLowerCase()
           );
@@ -433,10 +436,36 @@ export default function PantryPage() {
             const defaultEmoji = guessEmojiForItem(name) || '📦';
             parsedItems.push({
               id: Date.now().toString() + Math.random(),
-              name,
+              name: name.trim(),
               emoji: defaultEmoji,
               quantity: parseFloat(quantity),
               unit: unit || 'pcs',
+              category: 'Uncategorized',
+              purchaseDate: new Date().toISOString().split('T')[0]
+            });
+          }
+        }
+        
+        // Pattern 2: Just item name (assume 1 piece)
+        if (!matched && line.trim()) {
+          const name = line.trim();
+          const existingItem = pantryItems.find(item => 
+            item.name.toLowerCase() === name.toLowerCase()
+          );
+          
+          if (existingItem) {
+            updates.push({
+              item: existingItem,
+              addQuantity: 1
+            });
+          } else {
+            const defaultEmoji = guessEmojiForItem(name) || '📦';
+            parsedItems.push({
+              id: Date.now().toString() + Math.random(),
+              name: name,
+              emoji: defaultEmoji,
+              quantity: 1,
+              unit: 'pcs',
               category: 'Uncategorized',
               purchaseDate: new Date().toISOString().split('T')[0]
             });
