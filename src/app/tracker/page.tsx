@@ -20,6 +20,7 @@ interface StorePrice {
   total_price?: number;
   quantity?: number;
   date: string;
+  receipt_image?: string | null;
 }
 
 interface PriceEntry {
@@ -436,11 +437,31 @@ export default function TrackerPage() {
 
                       {/* Actions */}
                       {!isEditMode && (
-                        <div className="flex gap-2 sm:ml-4 mt-2 sm:mt-0">
+                        <div className="flex items-center gap-1 sm:ml-4 mt-2 sm:mt-0">
+                          {/* View Receipt Button - Check if any store has a receipt image */}
+                          {item.stores.some(store => store.receipt_image) && (
+                            <Button
+                              variant="ghost"
+                              size="sm"
+                              onClick={() => {
+                                // Find the latest receipt image
+                                const storeWithReceipt = item.stores
+                                  .filter(store => store.receipt_image)
+                                  .sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime())[0];
+                                if (storeWithReceipt?.receipt_image) {
+                                  setShowReceiptImage(storeWithReceipt.receipt_image);
+                                }
+                              }}
+                              className="h-8 w-8 p-0"
+                            >
+                              <Eye className="w-4 h-4" />
+                            </Button>
+                          )}
                           <Button
                             variant="ghost"
                             size="sm"
                             onClick={() => setEditingItem(item)}
+                            className="h-8 w-8 p-0"
                           >
                             <Edit className="w-4 h-4" />
                           </Button>

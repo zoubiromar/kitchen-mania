@@ -49,7 +49,7 @@ interface Recipe {
   rating?: number;
   tags?: string[];
   createdAt?: string;
-  usedQuantities?: { itemId: string; quantity: number; unit: string }[];
+  usedQuantities?: { itemId: string; quantity: number; unit: string; originalItem?: PantryItem }[];
 }
 
 const commonEmojis = ['🍅', '🥕', '🧅', '🥔', '🌽', '🥦', '🥬', '🥒', '🌶️', '🫑', '🥑', '🍆', '🧄', '🍄', '🥜', '🌰', '🍞', '🥐', '🥖', '🥨', '🥯', '🥞', '🧇', '🧈', '🍳', '🥚', '🧀', '🥓', '🥩', '🍗', '🍖', '🦴', '🌭', '🍔', '🍟', '🍕', '🥙', '🌮', '🌯', '��', '8', '🍝', '🍜', '🍲', '🍛', '🍱', '🍚', '🍙', '🍘', '🍥', '🍣', '🍤', '🦪', '🦑', '🦐', '🦞', '🦀', '🐙', '🍠', '🍢', '🍡', '🍧', '🍨', '🍦', '🥧', '🧁', '🍰', '🎂', '🍮', '🍭', '🍬', '🍫', '🍿', '🍩', '🍪', '🌰', '🥨', '🥕', '🌶️', '🥔', '🍠', '🥐', '🍞', '🥖', '🥨', '🧀', '🥚', '🍳', '🧈', '🥞', '🧇', '🥓', '🥩', '🍗', '🍖', '🍕', '🌭', '🍔', '🥙', '🌮', '🌯', '🍜', '🍝', '🍛', '🍲', '🍱', '🍘', '🍙', '🍚', '🍢', '🍣', '🍤', '🦐', '🦑', '🦪', '🍰', '🧁', '🥧', '🍦', '🍨', '🍧', '🍬', '🍭', '🍫', '🍿', '🥤', '🧃', '🥛', '☕', '🍵', '🧉', '🍶', '🍺', '🍻', '🥂', '🍷', '🥃', '🍸', '🍹', '🧊'];
@@ -597,7 +597,8 @@ export default function PantryPage() {
                   price: item.pricePerUnit || 0,
                   total_price: item.totalPrice || 0,
                   quantity: item.quantity,
-                  date: item.date
+                  date: item.date,
+                  receipt_image: item.receiptImage || null
                 };
                 
                 // Avoid duplicates from same store on same date
@@ -616,7 +617,8 @@ export default function PantryPage() {
                     price: item.pricePerUnit || 0,
                     total_price: item.totalPrice || 0,
                     quantity: item.quantity,
-                    date: item.date
+                    date: item.date,
+                    receipt_image: item.receiptImage || null
                   }],
                   target_price: null,
                   unit: item.unit,
@@ -848,14 +850,22 @@ export default function PantryPage() {
   const applyRecipe = (recipe: Recipe) => {
     // Deduct ingredients from pantry
     const updatedItems = [...pantryItems];
-    const usedQuantities: { itemId: string; quantity: number; unit: string }[] = [];
+    const usedQuantities: { itemId: string; quantity: number; unit: string; originalItem?: PantryItem }[] = [];
     
     recipe.usageFromPantry.forEach(usage => {
       const itemIndex = updatedItems.findIndex(item => item.id === usage.itemId);
       if (itemIndex !== -1) {
         const item = updatedItems[itemIndex];
         const actualUsed = Math.min(item.quantity, usage.quantity);
-        usedQuantities.push({ itemId: item.id, quantity: actualUsed, unit: item.unit });
+        
+        // Store the full original item data if it will be completely removed
+        const willBeDeleted = item.quantity - actualUsed <= 0;
+        usedQuantities.push({ 
+          itemId: item.id, 
+          quantity: actualUsed, 
+          unit: item.unit,
+          originalItem: willBeDeleted ? { ...item } : undefined
+        });
         
         const newQuantity = item.quantity - actualUsed;
         
@@ -881,11 +891,9 @@ export default function PantryPage() {
   const unuseRecipe = (recipe: Recipe) => {
     if (!recipe.usedQuantities) return;
     
-    // Get all saved items from localStorage to restore completely used items
-    const allSavedItems = JSON.parse(localStorage.getItem('pantryItems') || '[]');
     const updatedItems = [...pantryItems];
     
-    recipe.usedQuantities.forEach(usage => {
+    recipe.usedQuantities.forEach((usage: any) => {
       const existingItemIndex = updatedItems.findIndex(item => item.id === usage.itemId);
       if (existingItemIndex !== -1) {
         // Item exists, add quantity back
@@ -893,15 +901,12 @@ export default function PantryPage() {
           ...updatedItems[existingItemIndex],
           quantity: updatedItems[existingItemIndex].quantity + usage.quantity
         };
-      } else {
-        // Item was completely used, need to recreate it from saved data
-        const originalItem = allSavedItems.find((item: PantryItem) => item.id === usage.itemId);
-        if (originalItem) {
-          updatedItems.push({
-            ...originalItem,
-            quantity: usage.quantity
-          });
-        }
+      } else if (usage.originalItem) {
+        // Item was completely deleted, restore it with the used quantity
+        updatedItems.push({
+          ...usage.originalItem,
+          quantity: usage.quantity
+        });
       }
     });
     
@@ -948,11 +953,18 @@ export default function PantryPage() {
         return { name: ing, quantity: 1, unit: 'pcs' };
       });
       
+      // Ensure instructions are properly formatted as array of strings
+      const cleanedInstructions = Array.isArray(recipe.instructions) 
+        ? recipe.instructions.map((inst: any) => 
+            typeof inst === 'string' ? inst : String(inst)
+          ).filter((inst: string) => inst.trim())
+        : ['No instructions provided'];
+      
       const recipeData = {
         title: recipe.title,
         description: recipe.description || '',
         ingredients: cleanedIngredients,
-        instructions: recipe.instructions,
+        instructions: cleanedInstructions,
         servings: parseInt(recipe.servings || '4'),
         prep_time: parseInt(recipe.prepTime || '0') || null,
         cook_time: null,
@@ -985,11 +997,18 @@ export default function PantryPage() {
         return { name: ing, quantity: 1, unit: 'pcs' };
       });
       
+      // Ensure instructions are properly formatted as array of strings
+      const cleanedInstructions = Array.isArray(recipe.instructions) 
+        ? recipe.instructions.map((inst: any) => 
+            typeof inst === 'string' ? inst : String(inst)
+          ).filter((inst: string) => inst.trim())
+        : ['No instructions provided'];
+      
       const recipeData = {
         title: recipe.title,
         description: recipe.description || '',
         ingredients: cleanedIngredients,
-        instructions: recipe.instructions,
+        instructions: cleanedInstructions,
         servings: parseInt(recipe.servings || '4'),
         prep_time: parseInt(recipe.prepTime || '0') || null,
         cook_time: null,
@@ -999,10 +1018,15 @@ export default function PantryPage() {
         unit_system: unitSystem
       };
       
-      const { data } = await database.recipes.add(user!.id, recipeData);
-      if (data) {
-        setSavedRecipes([...savedRecipes, data]);
-        showToast('Recipe saved (image generation failed)', 'info');
+      try {
+        const { data } = await database.recipes.add(user!.id, recipeData);
+        if (data) {
+          setSavedRecipes([...savedRecipes, data]);
+          showToast('Recipe saved (image generation failed)', 'info');
+        }
+      } catch (dbError) {
+        console.error('Failed to save recipe to database:', dbError);
+        showToast('Failed to save recipe. Please try again.', 'error');
       }
     } finally {
       setSavingRecipe(null);
