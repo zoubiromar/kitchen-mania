@@ -4,19 +4,28 @@ import Link from 'next/link';
 import { usePathname } from 'next/navigation';
 import { useState } from 'react';
 import { Button } from '@/components/ui/button';
-import { Menu, X } from 'lucide-react';
+import { Menu, X, User, LogOut } from 'lucide-react';
+import { useAuth } from '@/components/AuthContext';
+import { useRouter } from 'next/navigation';
 
 export default function Navigation() {
   const pathname = usePathname();
+  const router = useRouter();
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
+  const { user, signOut } = useAuth();
 
   const navItems = [
     { href: '/', label: 'Home' },
     { href: '/pantry', label: 'My Pantry' },
     { href: '/recipes', label: 'Recipes' },
     { href: '/tracker', label: 'Price Tracker' },
-    { href: '/login', label: 'Login' },
   ];
+
+  const handleSignOut = async () => {
+    await signOut();
+    router.push('/login');
+    setIsMobileMenuOpen(false);
+  };
 
   const toggleMobileMenu = () => {
     setIsMobileMenuOpen(!isMobileMenuOpen);
@@ -44,6 +53,35 @@ export default function Navigation() {
                 </Button>
               </Link>
             ))}
+            {user ? (
+              <>
+                <Link href="/account">
+                  <Button
+                    variant={pathname === '/account' ? 'default' : 'ghost'}
+                    size="sm"
+                  >
+                    <User className="w-4 h-4 mr-1" />
+                    My Account
+                  </Button>
+                </Link>
+                <Button
+                  variant="ghost"
+                  size="sm"
+                  onClick={handleSignOut}
+                >
+                  <LogOut className="w-4 h-4" />
+                </Button>
+              </>
+            ) : (
+              <Link href="/login">
+                <Button
+                  variant={pathname === '/login' ? 'default' : 'ghost'}
+                  size="sm"
+                >
+                  Login
+                </Button>
+              </Link>
+            )}
           </div>
 
           {/* Mobile Menu Button */}
@@ -78,6 +116,47 @@ export default function Navigation() {
                   </div>
                 </Link>
               ))}
+              
+              {/* Divider */}
+              <div className="border-t my-2"></div>
+              
+              {user ? (
+                <>
+                  <Link
+                    href="/account"
+                    onClick={() => setIsMobileMenuOpen(false)}
+                  >
+                    <div
+                      className={`px-4 py-3 hover:bg-gray-100 flex items-center ${
+                        pathname === '/account' ? 'bg-gray-100 font-semibold' : ''
+                      }`}
+                    >
+                      <User className="w-4 h-4 mr-2" />
+                      My Account
+                    </div>
+                  </Link>
+                  <div
+                    onClick={handleSignOut}
+                    className="px-4 py-3 hover:bg-gray-100 flex items-center cursor-pointer text-red-600"
+                  >
+                    <LogOut className="w-4 h-4 mr-2" />
+                    Sign Out
+                  </div>
+                </>
+              ) : (
+                <Link
+                  href="/login"
+                  onClick={() => setIsMobileMenuOpen(false)}
+                >
+                  <div
+                    className={`px-4 py-3 hover:bg-gray-100 ${
+                      pathname === '/login' ? 'bg-gray-100 font-semibold' : ''
+                    }`}
+                  >
+                    Login
+                  </div>
+                </Link>
+              )}
             </div>
           </div>
         )}

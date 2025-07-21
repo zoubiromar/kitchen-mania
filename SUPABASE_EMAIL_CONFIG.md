@@ -32,12 +32,14 @@ Find the "Confirm signup" template and update the confirmation URL:
 <p>{{ .ConfirmationURL }}</p>
 ```
 
-### Step 3: Configure Site URL
+### Step 3: Configure Site URL (CRITICAL FOR EMAIL REDIRECTS)
+
+**⚠️ THIS IS THE MOST IMPORTANT STEP TO FIX LOCALHOST REDIRECTS ⚠️**
 
 1. In Supabase Dashboard, go to **Authentication** → **URL Configuration**
 2. Update the following settings:
 
-   - **Site URL**: `https://kitchen-mania.vercel.app`
+   - **Site URL**: `https://kitchen-mania.vercel.app` (NOT localhost!)
    - **Redirect URLs** (add all of these):
      ```
      https://kitchen-mania.vercel.app/**
@@ -46,6 +48,8 @@ Find the "Confirm signup" template and update the confirmation URL:
      http://localhost:3001/**
      http://localhost:3002/**
      ```
+
+**Note**: The Site URL is what Supabase uses for email links. If this is set to localhost, all email confirmation links will redirect to localhost instead of your production site.
 
 ### Step 4: Environment Variables in Vercel
 
