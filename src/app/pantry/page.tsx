@@ -1696,7 +1696,7 @@ export default function PantryPage() {
                         </tr>
                       </thead>
                       <tbody>
-                        {recipe.ingredients.map((ingredient, idx) => {
+                        {recipe.ingredients && recipe.ingredients.map((ingredient, idx) => {
                           const ing = typeof ingredient === 'string' 
                             ? { name: ingredient, quantity: 1, unit: 'pcs' }
                             : ingredient;
@@ -1715,7 +1715,7 @@ export default function PantryPage() {
                 <div>
                   <h4 className="font-semibold mb-2">Instructions:</h4>
                   <ol className="list-decimal list-inside space-y-2">
-                    {recipe.instructions.map((instruction, idx) => (
+                    {recipe.instructions && recipe.instructions.map((instruction, idx) => (
                       <li key={idx} className="text-sm">{instruction}</li>
                     ))}
                   </ol>
@@ -2017,7 +2017,7 @@ export default function PantryPage() {
                     <div>
                       <h4 className="font-semibold mb-2">Ingredients from Pantry:</h4>
                       <ul className="space-y-1">
-                        {recipe.usageFromPantry.map((usage, idx) => {
+                        {recipe.usageFromPantry && recipe.usageFromPantry.map((usage, idx) => {
                           const pantryItem = pantryItems.find(item => item.id === usage.itemId);
                           return pantryItem ? (
                             <li key={idx} className={pantryItem.quantity < usage.quantity ? 'text-red-600' : ''}>

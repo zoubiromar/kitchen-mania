@@ -14,11 +14,14 @@ export default function Navigation() {
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
   const { user, signOut } = useAuth();
 
-  const navItems = [
+  // Only show protected pages when logged in
+  const navItems = user ? [
     { href: '/', label: 'Home' },
     { href: '/pantry', label: 'My Pantry' },
     { href: '/recipes', label: 'Recipes' },
     { href: '/tracker', label: 'Price Tracker' },
+  ] : [
+    { href: '/', label: 'Home' },
   ];
 
   const handleSignOut = async () => {

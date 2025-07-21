@@ -13,6 +13,7 @@ import { ArrowLeft, Receipt, Edit, Eye, TrendingUp, TrendingDown, DollarSign, Gr
 import { useAuth } from '@/components/AuthContext';
 import { database } from '@/lib/database';
 import { ProtectedRoute } from '@/components/AuthContext';
+import { Toast, useToast } from '@/components/toast';
 
 interface StorePrice {
   store: string;
@@ -43,6 +44,7 @@ interface ReceiptData {
 
 export default function TrackerPage() {
   const { user } = useAuth();
+  const { toast, showToast, hideToast } = useToast();
   const [priceHistory, setPriceHistory] = useState<PriceEntry[]>([]);
   const [receipts, setReceipts] = useState<ReceiptData[]>([]);
   const [searchTerm, setSearchTerm] = useState('');
@@ -444,26 +446,30 @@ export default function TrackerPage() {
                       {/* Actions */}
                       {!isEditMode && (
                         <div className="flex flex-col items-center gap-1 sm:ml-4 mt-2 sm:mt-0">
-                          {/* View Receipt Button - Check if any store has a receipt image */}
-                          {item.stores && item.stores.length > 0 && item.stores.some(store => store.receipt_image) && (
-                            <Button
-                              variant="ghost"
-                              size="sm"
-                              onClick={() => {
-                                // Find the latest receipt image
-                                const storeWithReceipt = item.stores
-                                  .filter(store => store.receipt_image)
-                                  .sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime())[0];
-                                if (storeWithReceipt?.receipt_image) {
-                                  setShowReceiptImage(storeWithReceipt.receipt_image);
-                                }
-                              }}
-                              className="h-8 w-8 p-0"
-                              title="View Receipt"
-                            >
-                              <Eye className="w-4 h-4" />
-                            </Button>
-                          )}
+                          {/* View Receipt Button - Always show */}
+                          <Button
+                            variant="ghost"
+                            size="sm"
+                            onClick={() => {
+                              // Find if any store has a receipt image
+                              const storeWithReceipt = item.stores && item.stores.length > 0 
+                                ? item.stores
+                                    .filter(store => store.receipt_image)
+                                    .sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime())[0]
+                                : null;
+                              
+                              if (storeWithReceipt?.receipt_image) {
+                                setShowReceiptImage(storeWithReceipt.receipt_image);
+                              } else {
+                                // Show a toast when no receipt is available
+                                showToast('No receipt image available for this item', 'info');
+                              }
+                            }}
+                            className="h-8 w-8 p-0"
+                            title="View Receipt"
+                          >
+                            <Eye className="w-4 h-4" />
+                          </Button>
                           <Button
                             variant="ghost"
                             size="sm"
@@ -639,6 +645,15 @@ export default function TrackerPage() {
           </Dialog>
         )}
       </div>
+      
+      {/* Toast */}
+      {toast && (
+        <Toast
+          message={toast.message}
+          type={toast.type}
+          onClose={hideToast}
+        />
+      )}
     </ProtectedRoute>
   );
 } 
