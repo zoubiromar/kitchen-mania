@@ -8,6 +8,9 @@ import { Input } from '@/components/ui/input';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Trash2, Plus } from 'lucide-react';
+import { useAuth } from '@/components/AuthContext';
+import { database } from '@/lib/database';
+import { ProtectedRoute } from '@/components/AuthContext';
 
 interface RecipeIngredient {
   name: string;
@@ -32,25 +35,49 @@ interface Recipe {
 }
 
 export default function RecipesPage() {
+  const { user } = useAuth();
   const [recipes, setRecipes] = useState<Recipe[]>([]);
   const [filteredRecipes, setFilteredRecipes] = useState<Recipe[]>([]);
   const [searchTerm, setSearchTerm] = useState('');
   const [selectedTag, setSelectedTag] = useState<string>('all');
   const [sortBy, setSortBy] = useState<'date' | 'rating' | 'title'>('date');
   const [allTags, setAllTags] = useState<string[]>([]);
+  const [isLoading, setIsLoading] = useState(true);
 
   useEffect(() => {
-    // Load recipes from localStorage
-    const savedRecipes = JSON.parse(localStorage.getItem('savedRecipes') || '[]');
-    setRecipes(savedRecipes);
+    if (!user) return;
     
-    // Extract all unique tags
-    const tags = new Set<string>();
-    savedRecipes.forEach((recipe: Recipe) => {
-      recipe.tags?.forEach(tag => tags.add(tag));
-    });
-    setAllTags(Array.from(tags));
-  }, []);
+    const loadRecipes = async () => {
+      setIsLoading(true);
+      try {
+        const { data: dbRecipes, error } = await database.recipes.getAll(user.id);
+        if (error) throw error;
+        
+        const formattedRecipes = (dbRecipes || []).map(recipe => ({
+          ...recipe,
+          image: recipe.image_url,
+          prepTime: recipe.prep_time ? `${recipe.prep_time} min` : undefined,
+          servings: recipe.servings ? `${recipe.servings} servings` : undefined,
+          tags: []
+        }));
+        
+        setRecipes(formattedRecipes);
+        
+        // Extract all unique tags
+        const tags = new Set<string>();
+        formattedRecipes.forEach((recipe: any) => {
+          recipe.tags?.forEach((tag: string) => tags.add(tag));
+        });
+        setAllTags(Array.from(tags));
+      } catch (error) {
+        console.error('Error loading recipes:', error);
+      } finally {
+        setIsLoading(false);
+      }
+    };
+    
+    loadRecipes();
+  }, [user]);
 
   useEffect(() => {
     let filtered = [...recipes];
@@ -88,18 +115,34 @@ export default function RecipesPage() {
     setFilteredRecipes(filtered);
   }, [recipes, searchTerm, selectedTag, sortBy]);
 
-  const updateRating = (recipeId: string, newRating: number) => {
-    const updatedRecipes = recipes.map(recipe =>
-      recipe.id === recipeId ? { ...recipe, rating: newRating } : recipe
-    );
-    setRecipes(updatedRecipes);
-    localStorage.setItem('savedRecipes', JSON.stringify(updatedRecipes));
+  const updateRating = async (recipeId: string, newRating: number) => {
+    if (!user) return;
+    
+    try {
+      const { error } = await database.recipes.update(recipeId, user.id, { rating: newRating });
+      if (error) throw error;
+      
+      const updatedRecipes = recipes.map(recipe =>
+        recipe.id === recipeId ? { ...recipe, rating: newRating } : recipe
+      );
+      setRecipes(updatedRecipes);
+    } catch (error) {
+      console.error('Error updating rating:', error);
+    }
   };
 
-  const deleteRecipe = (recipeId: string) => {
-    const updatedRecipes = recipes.filter(recipe => recipe.id !== recipeId);
-    setRecipes(updatedRecipes);
-    localStorage.setItem('savedRecipes', JSON.stringify(updatedRecipes));
+  const deleteRecipe = async (recipeId: string) => {
+    if (!user) return;
+    
+    try {
+      const { error } = await database.recipes.delete(recipeId, user.id);
+      if (error) throw error;
+      
+      const updatedRecipes = recipes.filter(recipe => recipe.id !== recipeId);
+      setRecipes(updatedRecipes);
+    } catch (error) {
+      console.error('Error deleting recipe:', error);
+    }
   };
 
   const StarRating = ({ rating, recipeId }: { rating: number; recipeId: string }) => {
@@ -121,8 +164,17 @@ export default function RecipesPage() {
     );
   };
 
+  if (isLoading) {
+    return (
+      <div className="flex items-center justify-center min-h-screen">
+        <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-gray-900"></div>
+      </div>
+    );
+  }
+
   return (
-    <div className="container mx-auto px-4 py-8">
+    <ProtectedRoute>
+      <div className="container mx-auto px-4 py-8">
       <div className="mb-8 flex justify-between items-start">
         <div>
           <h1 className="text-3xl font-bold mb-4">My Recipe Collection</h1>
@@ -255,6 +307,7 @@ export default function RecipesPage() {
           ))}
         </div>
       )}
-    </div>
+      </div>
+    </ProtectedRoute>
   );
 } 

@@ -14,6 +14,10 @@ import { Toast, useToast } from '@/components/toast';
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from '@/components/ui/dropdown-menu';
 import { Textarea } from '@/components/ui/textarea';
 import { saveReceiptData, savePriceData } from '@/utils/localStorage';
+import { useAuth } from '@/components/AuthContext';
+import { database } from '@/lib/database';
+import { supabase } from '@/lib/supabase';
+import { ProtectedRoute } from '@/components/AuthContext';
 
 interface PantryItem {
   id: string;
@@ -57,12 +61,10 @@ const standardUnits = [
 
 export default function PantryPage() {
   const { toast, showToast, hideToast } = useToast();
-  const [pantryItems, setPantryItems] = useState<PantryItem[]>([
-    { id: '1', name: 'Tomatoes', emoji: '🍅', quantity: 5, unit: 'pcs', category: 'Vegetables', expiryDate: '2024-01-15' },
-    { id: '2', name: 'Chicken Breast', emoji: '🍗', quantity: 2, unit: 'lbs', category: 'Meat', expiryDate: '2024-01-12' },
-    { id: '3', name: 'Rice', emoji: '🍚', quantity: 3, unit: 'cups', category: 'Grains' },
-    { id: '4', name: 'Onions', emoji: '🧅', quantity: 4, unit: 'pcs', category: 'Vegetables' },
-  ]);
+  const { user } = useAuth();
+  const [pantryItems, setPantryItems] = useState<PantryItem[]>([]);
+  const [isLoading, setIsLoading] = useState(true);
+  const [userProfile, setUserProfile] = useState<any>(null);
   
   const [newItem, setNewItem] = useState({
     name: '',
@@ -98,49 +100,130 @@ export default function PantryPage() {
   const [showUseSavedRecipe, setShowUseSavedRecipe] = useState(false);
   const [unitSystem, setUnitSystem] = useState<'metric' | 'imperial'>('imperial');
 
-  // Load saved recipes and preferences on mount
+  // Get available units based on user preferences
+  const getAvailableUnits = () => {
+    if (!userProfile?.preferred_units || userProfile.preferred_units.length === 0) {
+      return standardUnits;
+    }
+    // User's preferred units come first, then others
+    const preferred = userProfile.preferred_units;
+    const others = standardUnits.filter(unit => !preferred.includes(unit));
+    return [...preferred, ...others];
+  };
+
+  // Load user data from database
   useEffect(() => {
-    const storedRecipes = JSON.parse(localStorage.getItem('savedRecipes') || '[]');
-    setSavedRecipes(storedRecipes);
+    if (!user) return;
     
-    const storedUnitSystem = localStorage.getItem('unitSystem') as 'metric' | 'imperial';
-    if (storedUnitSystem) {
-      setUnitSystem(storedUnitSystem);
-    }
-  }, []);
+    const loadUserData = async () => {
+      setIsLoading(true);
+      try {
+        // Load user profile
+        const { data: profile } = await supabase
+          .from('profiles')
+          .select('*')
+          .eq('id', user.id)
+          .single();
+        
+        if (profile) {
+          setUserProfile(profile);
+          setUnitSystem(profile.unit_system || 'metric');
+        }
+        
+        // Load pantry items
+        const { data: items, error } = await database.pantry.getAll(user.id);
+        if (error) throw error;
+        
+        setPantryItems(items || []);
+        
+        // Load saved recipes
+        const { data: recipes } = await database.recipes.getAll(user.id);
+        setSavedRecipes(recipes || []);
+      } catch (error) {
+        console.error('Error loading data:', error);
+        showToast('Error loading data', 'error');
+      } finally {
+        setIsLoading(false);
+      }
+    };
+    
+    loadUserData();
+  }, [user]);
 
-  // Save pantry items to localStorage when they change
-  useEffect(() => {
-    if (pantryItems.length > 0 || localStorage.getItem('pantryItems')) {
-      localStorage.setItem('pantryItems', JSON.stringify(pantryItems));
-    }
-  }, [pantryItems]);
-
-  const addItem = () => {
-    if (newItem.name && newItem.quantity > 0) {
-      const item: PantryItem = {
-        id: Date.now().toString(),
+  const addItem = async () => {
+    if (!user || !newItem.name || newItem.quantity <= 0) return;
+    
+    try {
+      const itemData = {
         name: newItem.name,
-        emoji: newItem.emoji,
+        emoji: newItem.emoji || '📦',
         quantity: newItem.quantity,
         unit: newItem.unit || (unitSystem === 'metric' ? 'g' : 'pcs'),
         category: newItem.category || 'Other',
-        expiryDate: newItem.expiryDate || undefined
+        expiry_date: newItem.expiryDate || null,
+        price: null
       };
       
-      setPantryItems([...pantryItems, item]);
-      setNewItem({ name: '', emoji: '', quantity: 0, unit: '', category: '', expiryDate: '', purchaseDate: '' });
+      const { data, error } = await database.pantry.add(user.id, itemData);
+      if (error) throw error;
+      
+      if (data) {
+        setPantryItems([...pantryItems, {
+          id: data.id,
+          name: data.name,
+          emoji: data.emoji,
+          quantity: data.quantity,
+          unit: data.unit,
+          category: data.category,
+          expiryDate: data.expiry_date,
+          purchaseDate: data.created_at
+        }]);
+        setNewItem({ name: '', emoji: '', quantity: 0, unit: '', category: '', expiryDate: '', purchaseDate: '' });
+        showToast('Item added successfully', 'success');
+      }
+    } catch (error) {
+      console.error('Error adding item:', error);
+      showToast('Failed to add item', 'error');
     }
   };
 
-  const removeItem = (id: string) => {
-    setPantryItems(pantryItems.filter(item => item.id !== id));
+  const removeItem = async (id: string) => {
+    if (!user) return;
+    
+    try {
+      const { error } = await database.pantry.delete(id, user.id);
+      if (error) throw error;
+      
+      setPantryItems(pantryItems.filter(item => item.id !== id));
+      showToast('Item removed', 'success');
+    } catch (error) {
+      console.error('Error removing item:', error);
+      showToast('Failed to remove item', 'error');
+    }
   };
 
-  const updateItem = (id: string, updates: Partial<PantryItem>) => {
-    setPantryItems(pantryItems.map(item => 
-      item.id === id ? { ...item, ...updates } : item
-    ));
+  const updateItem = async (id: string, updates: Partial<PantryItem>) => {
+    if (!user) return;
+    
+    try {
+      const dbUpdates: any = {};
+      if ('name' in updates) dbUpdates.name = updates.name;
+      if ('emoji' in updates) dbUpdates.emoji = updates.emoji;
+      if ('quantity' in updates) dbUpdates.quantity = updates.quantity;
+      if ('unit' in updates) dbUpdates.unit = updates.unit;
+      if ('category' in updates) dbUpdates.category = updates.category;
+      if ('expiryDate' in updates) dbUpdates.expiry_date = updates.expiryDate;
+      
+      const { error } = await database.pantry.update(id, user.id, dbUpdates);
+      if (error) throw error;
+      
+      setPantryItems(pantryItems.map(item => 
+        item.id === id ? { ...item, ...updates } : item
+      ));
+    } catch (error) {
+      console.error('Error updating item:', error);
+      showToast('Failed to update item', 'error');
+    }
   };
 
   const toggleItemForRecipe = (itemId: string) => {
@@ -352,8 +435,26 @@ export default function PantryPage() {
           }
         }
         
-        // Save price tracking data with automatic cleanup
-        savePriceData(priceData);
+        // Save price tracking data to database
+        if (user && priceData.length > 0) {
+          priceData.forEach(async (item) => {
+            try {
+              await database.priceTracker.add(user.id, {
+                name: item.name,
+                price_per_unit: item.pricePerUnit || 0,
+                total_price: item.totalPrice || 0,
+                quantity: item.quantity,
+                unit: item.unit,
+                merchant: item.merchant,
+                date: item.date,
+                receipt_image: undefined,
+                emoji: item.emoji || undefined
+              });
+            } catch (error) {
+              console.error('Error saving price data:', error);
+            }
+          });
+        }
         
         // Generate emojis for new items
         for (const item of parsedItems) {
@@ -404,28 +505,61 @@ export default function PantryPage() {
     }
   };
 
-  const confirmBulkAdd = () => {
-    const updatedItems = [...pantryItems];
+  const confirmBulkAdd = async () => {
+    if (!user) return;
     
-    // Add new items
-    bulkItems.new.forEach(item => {
-      updatedItems.push(item);
-    });
-    
-    // Update existing items
-    bulkItems.existing.forEach(update => {
-      const index = updatedItems.findIndex(item => item.id === update.item.id);
-      if (index !== -1) {
-        updatedItems[index] = {
-          ...updatedItems[index],
-          quantity: updatedItems[index].quantity + update.addQuantity
+    try {
+      // Add new items to database
+      for (const item of bulkItems.new) {
+        const itemData = {
+          name: item.name,
+          emoji: item.emoji || '📦',
+          quantity: item.quantity,
+          unit: item.unit,
+          category: item.category || 'Uncategorized',
+          expiry_date: item.expiryDate || null,
+          price: null
         };
+        
+        const { data, error } = await database.pantry.add(user.id, itemData);
+        if (!error && data) {
+          setPantryItems(prev => [...prev, {
+            id: data.id,
+            name: data.name,
+            emoji: data.emoji,
+            quantity: data.quantity,
+            unit: data.unit,
+            category: data.category,
+            expiryDate: data.expiry_date,
+            purchaseDate: data.created_at
+          }]);
+        }
       }
-    });
-    
-    setPantryItems(updatedItems);
-    setBulkItems({ new: [], existing: [] });
-    showToast(`Added ${bulkItems.new.length} new items and updated ${bulkItems.existing.length} existing items`, 'success');
+      
+      // Update existing items in database
+      for (const update of bulkItems.existing) {
+        const newQuantity = update.item.quantity + update.addQuantity;
+        const { error } = await database.pantry.update(
+          update.item.id, 
+          user.id, 
+          { quantity: newQuantity }
+        );
+        
+        if (!error) {
+          setPantryItems(prev => prev.map(item => 
+            item.id === update.item.id 
+              ? { ...item, quantity: newQuantity }
+              : item
+          ));
+        }
+      }
+      
+      setBulkItems({ new: [], existing: [] });
+      showToast(`Added ${bulkItems.new.length} new items and updated ${bulkItems.existing.length} existing items`, 'success');
+    } catch (error) {
+      console.error('Error in bulk add:', error);
+      showToast('Some items failed to add', 'error');
+    }
   };
 
   const generateEmojiForItem = async (itemName: string, itemId?: string) => {
@@ -633,22 +767,28 @@ export default function PantryPage() {
         return { name: ing, quantity: 1, unit: 'pcs' };
       });
       
-      const enrichedRecipe = {
-        ...recipe,
+      const recipeData = {
+        title: recipe.title,
+        description: recipe.description || '',
         ingredients: cleanedIngredients,
-        image: imageData.imageUrl || '/api/placeholder/400/300',
+        instructions: recipe.instructions,
+        servings: parseInt(recipe.servings || '4'),
+        prep_time: parseInt(recipe.prepTime || '0') || null,
+        cook_time: null,
+        difficulty: 'Medium' as const,
         rating: 0,
-        tags: [],
-        createdAt: new Date().toISOString()
+        image_url: imageData.imageUrl || '/api/placeholder/400/300',
+        unit_system: unitSystem
       };
       
-      // Save to localStorage for persistence
-      const existingRecipes = JSON.parse(localStorage.getItem('savedRecipes') || '[]');
-      existingRecipes.push(enrichedRecipe);
-      localStorage.setItem('savedRecipes', JSON.stringify(existingRecipes));
+      // Save to database
+      const { data, error } = await database.recipes.add(user!.id, recipeData);
+      if (error) throw error;
       
-      setSavedRecipes([...savedRecipes, enrichedRecipe]);
-      showToast('Recipe saved successfully with image!', 'success');
+      if (data) {
+        setSavedRecipes([...savedRecipes, data]);
+        showToast('Recipe saved successfully with image!', 'success');
+      }
     } catch (error) {
       console.error('Error saving recipe:', error);
       // Save without image if generation fails
@@ -664,16 +804,25 @@ export default function PantryPage() {
         return { name: ing, quantity: 1, unit: 'pcs' };
       });
       
-      const basicRecipe = {
-        ...recipe,
+      const recipeData = {
+        title: recipe.title,
+        description: recipe.description || '',
         ingredients: cleanedIngredients,
-        image: '/api/placeholder/400/300',
+        instructions: recipe.instructions,
+        servings: parseInt(recipe.servings || '4'),
+        prep_time: parseInt(recipe.prepTime || '0') || null,
+        cook_time: null,
+        difficulty: 'Medium' as const,
         rating: 0,
-        tags: [],
-        createdAt: new Date().toISOString()
+        image_url: '/api/placeholder/400/300',
+        unit_system: unitSystem
       };
-      setSavedRecipes([...savedRecipes, basicRecipe]);
-      showToast('Recipe saved (image generation failed)', 'info');
+      
+      const { data } = await database.recipes.add(user!.id, recipeData);
+      if (data) {
+        setSavedRecipes([...savedRecipes, data]);
+        showToast('Recipe saved (image generation failed)', 'info');
+      }
     } finally {
       setSavingRecipe(null);
     }
@@ -708,8 +857,17 @@ export default function PantryPage() {
     return acc;
   }, {} as Record<string, PantryItem[]>);
 
+  if (isLoading) {
+    return (
+      <div className="flex items-center justify-center min-h-screen">
+        <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-gray-900"></div>
+      </div>
+    );
+  }
+
   return (
-    <div className="container mx-auto px-4 py-8">
+    <ProtectedRoute>
+      <div className="container mx-auto px-4 py-8">
       <div className="mb-8">
         <div className="flex justify-between items-center mb-2">
           <h1 className="text-3xl font-bold">My Pantry</h1>
@@ -894,7 +1052,7 @@ export default function PantryPage() {
                         <SelectValue placeholder="Select unit" />
                       </SelectTrigger>
                       <SelectContent>
-                        {standardUnits.map(unit => (
+                        {getAvailableUnits().map(unit => (
                           <SelectItem key={unit} value={unit}>
                             {unit}
                           </SelectItem>
@@ -1078,7 +1236,7 @@ export default function PantryPage() {
                                 <SelectValue />
                               </SelectTrigger>
                               <SelectContent>
-                                {standardUnits.map(unit => (
+                                {getAvailableUnits().map(unit => (
                                   <SelectItem key={unit} value={unit}>
                                     {unit}
                                   </SelectItem>
@@ -1517,11 +1675,11 @@ export default function PantryPage() {
                           <SelectValue />
                         </SelectTrigger>
                         <SelectContent>
-                          {standardUnits.map(unit => (
-                            <SelectItem key={unit} value={unit} className="text-xs">
-                              {unit}
-                            </SelectItem>
-                          ))}
+                                                      {getAvailableUnits().map(unit => (
+                              <SelectItem key={unit} value={unit} className="text-xs">
+                                {unit}
+                              </SelectItem>
+                            ))}
                         </SelectContent>
                       </Select>
                     </div>
@@ -1776,6 +1934,7 @@ export default function PantryPage() {
           onClose={hideToast}
         />
       )}
-    </div>
+      </div>
+    </ProtectedRoute>
   );
 } 

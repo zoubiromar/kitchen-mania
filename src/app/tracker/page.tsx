@@ -10,6 +10,9 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/com
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from '@/components/ui/dialog';
 import { ArrowLeft, Receipt, Edit, Eye, TrendingUp, TrendingDown, DollarSign, GripVertical, Minus } from 'lucide-react';
+import { useAuth } from '@/components/AuthContext';
+import { database } from '@/lib/database';
+import { ProtectedRoute } from '@/components/AuthContext';
 
 interface PriceEntry {
   id: string;
@@ -34,6 +37,7 @@ interface ReceiptData {
 }
 
 export default function TrackerPage() {
+  const { user } = useAuth();
   const [priceHistory, setPriceHistory] = useState<PriceEntry[]>([]);
   const [receipts, setReceipts] = useState<ReceiptData[]>([]);
   const [searchTerm, setSearchTerm] = useState('');
@@ -44,14 +48,44 @@ export default function TrackerPage() {
   const [isEditMode, setIsEditMode] = useState(false);
   const [draggedItem, setDraggedItem] = useState<PriceEntry | null>(null);
   const [dragOverItem, setDragOverItem] = useState<PriceEntry | null>(null);
+  const [isLoading, setIsLoading] = useState(true);
 
   useEffect(() => {
-    // Load price history and receipts from localStorage
-    const savedPriceData = JSON.parse(localStorage.getItem('priceTracker') || '[]');
-    const savedReceipts = JSON.parse(localStorage.getItem('receipts') || '[]');
-    setPriceHistory(savedPriceData);
-    setReceipts(savedReceipts);
-  }, []);
+    if (!user) return;
+    
+    const loadPriceData = async () => {
+      setIsLoading(true);
+      try {
+        const { data: priceData, error } = await database.priceTracker.getAll(user.id);
+        if (error) throw error;
+        
+        const formattedData = (priceData || []).map(item => ({
+          id: item.id,
+          name: item.name,
+          pricePerUnit: item.price_per_unit,
+          totalPrice: item.total_price,
+          quantity: item.quantity,
+          unit: item.unit,
+          merchant: item.merchant,
+          date: item.date,
+          receiptImage: item.receipt_image || undefined,
+          emoji: item.emoji || '🛒'
+        }));
+        
+        setPriceHistory(formattedData);
+        
+        // Load receipts from localStorage for now (until we implement receipt storage in DB)
+        const savedReceipts = JSON.parse(localStorage.getItem('receipts') || '[]');
+        setReceipts(savedReceipts);
+      } catch (error) {
+        console.error('Error loading price data:', error);
+      } finally {
+        setIsLoading(false);
+      }
+    };
+    
+    loadPriceData();
+  }, [user]);
 
   const merchants = ['all', ...Array.from(new Set(priceHistory.map(item => item.merchant)))];
 
@@ -79,7 +113,8 @@ export default function TrackerPage() {
     newHistory.splice(targetIndex, 0, draggedItem);
 
     setPriceHistory(newHistory);
-    localStorage.setItem('priceTracker', JSON.stringify(newHistory));
+    // Note: We're only updating the UI order, not persisting to DB
+    // In a production app, you might want to add a sort_order column
   };
 
   const handleDragEnd = () => {
@@ -87,10 +122,18 @@ export default function TrackerPage() {
     setDragOverItem(null);
   };
 
-  const handleDeleteItem = (itemId: string) => {
-    const newHistory = priceHistory.filter(item => item.id !== itemId);
-    setPriceHistory(newHistory);
-    localStorage.setItem('priceTracker', JSON.stringify(newHistory));
+  const handleDeleteItem = async (itemId: string) => {
+    if (!user) return;
+    
+    try {
+      const { error } = await database.priceTracker.delete(itemId, user.id);
+      if (error) throw error;
+      
+      const newHistory = priceHistory.filter(item => item.id !== itemId);
+      setPriceHistory(newHistory);
+    } catch (error) {
+      console.error('Error deleting item:', error);
+    }
   };
 
   const filteredItems = priceHistory
@@ -112,19 +155,45 @@ export default function TrackerPage() {
       }
     });
 
-  const updatePriceEntry = (updatedEntry: PriceEntry) => {
-    const updatedHistory = priceHistory.map(item =>
-      item.id === updatedEntry.id ? updatedEntry : item
-    );
-    setPriceHistory(updatedHistory);
-    localStorage.setItem('priceTracker', JSON.stringify(updatedHistory));
-    setEditingItem(null);
+  const updatePriceEntry = async (updatedEntry: PriceEntry) => {
+    if (!user) return;
+    
+    try {
+      const updates = {
+        name: updatedEntry.name,
+        price_per_unit: updatedEntry.pricePerUnit,
+        total_price: updatedEntry.totalPrice,
+        quantity: updatedEntry.quantity,
+        unit: updatedEntry.unit,
+        merchant: updatedEntry.merchant,
+        date: updatedEntry.date
+      };
+      
+      const { error } = await database.priceTracker.update(updatedEntry.id, user.id, updates);
+      if (error) throw error;
+      
+      const updatedHistory = priceHistory.map(item =>
+        item.id === updatedEntry.id ? updatedEntry : item
+      );
+      setPriceHistory(updatedHistory);
+      setEditingItem(null);
+    } catch (error) {
+      console.error('Error updating price entry:', error);
+    }
   };
 
-  const deletePriceEntry = (id: string) => {
-    const updatedHistory = priceHistory.filter(item => item.id !== id);
-    setPriceHistory(updatedHistory);
-    localStorage.setItem('priceTracker', JSON.stringify(updatedHistory));
+  const deletePriceEntry = async (id: string) => {
+    if (!user) return;
+    
+    try {
+      const { error } = await database.priceTracker.delete(id, user.id);
+      if (error) throw error;
+      
+      const updatedHistory = priceHistory.filter(item => item.id !== id);
+      setPriceHistory(updatedHistory);
+    } catch (error) {
+      console.error('Error deleting price entry:', error);
+    }
   };
 
   // Calculate price trends for items
@@ -150,8 +219,17 @@ export default function TrackerPage() {
     return item?.emoji || '🛒';
   };
 
+  if (isLoading) {
+    return (
+      <div className="flex items-center justify-center min-h-screen">
+        <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-gray-900"></div>
+      </div>
+    );
+  }
+
   return (
-    <div className="container mx-auto px-4 py-8">
+    <ProtectedRoute>
+      <div className="container mx-auto px-4 py-8">
       {/* Header */}
       <div className="flex justify-between items-center mb-8">
         <div>
@@ -476,6 +554,7 @@ export default function TrackerPage() {
           </DialogContent>
         </Dialog>
       )}
-    </div>
+      </div>
+    </ProtectedRoute>
   );
 } 

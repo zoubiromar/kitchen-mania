@@ -12,7 +12,7 @@ import { Textarea } from '@/components/ui/textarea'
 import { useAuth } from '@/components/AuthContext'
 import { auth } from '@/lib/auth'
 import { supabase } from '@/lib/supabase'
-import { User, Mail, Lock, Settings, Trash2, Globe, Upload, Save, Loader2 } from 'lucide-react'
+import { User, Mail, Lock, Settings, Trash2, Globe, Upload, Save, Loader2, Plus } from 'lucide-react'
 import {
   Dialog,
   DialogContent,
@@ -61,6 +61,8 @@ export default function AccountPage() {
   const [unitSystem, setUnitSystem] = useState<'metric' | 'imperial'>('metric')
   const [preferredUnits, setPreferredUnits] = useState<string[]>([])
   const [defaultServings, setDefaultServings] = useState('4')
+  const [newUnit, setNewUnit] = useState('')
+  const [showAddUnit, setShowAddUnit] = useState(false)
   
   // Password change
   const [currentPassword, setCurrentPassword] = useState('')
@@ -181,14 +183,46 @@ export default function AccountPage() {
     
     setLoading(true)
     try {
-      // Note: User deletion needs to be handled server-side in production
-      // For now, we'll just sign out and show a message
-      showMessage('error', 'Account deletion requires contacting support. Please email support with your deletion request.')
+      // Delete all user data first
+      const { error: pantryError } = await supabase
+        .from('pantry_items')
+        .delete()
+        .eq('user_id', user!.id);
       
-      // In a production app, you would:
-      // 1. Call an API endpoint that uses service role key to delete user
-      // 2. Or implement a soft delete with an account deactivation flag
+      const { error: recipesError } = await supabase
+        .from('recipes')
+        .delete()
+        .eq('user_id', user!.id);
       
+      const { error: priceError } = await supabase
+        .from('price_tracker_items')
+        .delete()
+        .eq('user_id', user!.id);
+      
+      // Get current session for auth token
+      const { data: { session } } = await supabase.auth.getSession();
+      
+      if (session?.access_token) {
+        // Call API endpoint to delete account
+        const response = await fetch('/api/auth/delete-account', {
+          method: 'DELETE',
+          headers: {
+            'Authorization': `Bearer ${session.access_token}`
+          }
+        });
+        
+        const result = await response.json();
+        
+        if (response.ok) {
+          // Sign out and redirect
+          await signOut();
+          router.push('/');
+        } else {
+          throw new Error(result.error || 'Failed to delete account');
+        }
+      } else {
+        throw new Error('No active session');
+      }
     } catch (error: any) {
       showMessage('error', error.message || 'Failed to delete account')
     } finally {
@@ -244,6 +278,18 @@ export default function AccountPage() {
         ? prev.filter(u => u !== unit)
         : [...prev, unit]
     )
+  }
+
+  const addCustomUnit = () => {
+    if (newUnit.trim() && !preferredUnits.includes(newUnit.trim())) {
+      setPreferredUnits(prev => [...prev, newUnit.trim()])
+      setNewUnit('')
+      setShowAddUnit(false)
+    }
+  }
+
+  const removeUnit = (unit: string) => {
+    setPreferredUnits(prev => prev.filter(u => u !== unit))
   }
 
   if (!user) {
@@ -395,10 +441,77 @@ export default function AccountPage() {
                   </div>
 
                   <div className="grid gap-2">
-                    <Label>Preferred Units</Label>
+                    <div className="flex justify-between items-center">
+                      <Label>Preferred Units</Label>
+                      <Button
+                        type="button"
+                        variant="outline"
+                        size="sm"
+                        onClick={() => setShowAddUnit(!showAddUnit)}
+                      >
+                        <Plus className="w-4 h-4 mr-1" />
+                        Add Custom Unit
+                      </Button>
+                    </div>
                     <p className="text-sm text-gray-600 mb-2">
-                      Select your commonly used units for quick access
+                      Select your commonly used units. These will appear first in all unit selections.
                     </p>
+                    
+                    {/* Custom unit input */}
+                    {showAddUnit && (
+                      <div className="flex gap-2 mb-4">
+                        <Input
+                          placeholder="Enter custom unit (e.g., 'pinch')"
+                          value={newUnit}
+                          onChange={(e) => setNewUnit(e.target.value)}
+                          onKeyPress={(e) => e.key === 'Enter' && addCustomUnit()}
+                        />
+                        <Button
+                          type="button"
+                          size="sm"
+                          onClick={addCustomUnit}
+                        >
+                          Add
+                        </Button>
+                        <Button
+                          type="button"
+                          variant="outline"
+                          size="sm"
+                          onClick={() => {
+                            setShowAddUnit(false)
+                            setNewUnit('')
+                          }}
+                        >
+                          Cancel
+                        </Button>
+                      </div>
+                    )}
+                    
+                    {/* Selected/preferred units */}
+                    {preferredUnits.length > 0 && (
+                      <div className="mb-4">
+                        <h4 className="text-sm font-medium mb-2">Your Preferred Units:</h4>
+                        <div className="flex flex-wrap gap-2">
+                          {preferredUnits.map(unit => (
+                            <div
+                              key={unit}
+                              className="flex items-center gap-1 bg-blue-100 text-blue-800 px-3 py-1 rounded-full"
+                            >
+                              <span className="text-sm">{unit}</span>
+                              <button
+                                type="button"
+                                onClick={() => removeUnit(unit)}
+                                className="ml-1 text-blue-600 hover:text-blue-800"
+                              >
+                                ×
+                              </button>
+                            </div>
+                          ))}
+                        </div>
+                      </div>
+                    )}
+                    
+                    {/* Available units to add */}
                     <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 gap-2">
                       {/* System units */}
                       {UNIT_SYSTEMS[unitSystem].weight.map(unit => (
@@ -408,6 +521,7 @@ export default function AccountPage() {
                           variant={preferredUnits.includes(unit) ? 'default' : 'outline'}
                           size="sm"
                           onClick={() => togglePreferredUnit(unit)}
+                          disabled={preferredUnits.includes(unit)}
                         >
                           {unit}
                         </Button>
@@ -419,16 +533,17 @@ export default function AccountPage() {
                           variant={preferredUnits.includes(unit) ? 'default' : 'outline'}
                           size="sm"
                           onClick={() => togglePreferredUnit(unit)}
+                          disabled={preferredUnits.includes(unit)}
                         >
                           {unit}
                         </Button>
                       ))}
                       {/* Common units */}
-                      {COMMON_UNITS.map(unit => (
+                      {COMMON_UNITS.filter(unit => !preferredUnits.includes(unit)).map(unit => (
                         <Button
                           key={unit}
                           type="button"
-                          variant={preferredUnits.includes(unit) ? 'default' : 'outline'}
+                          variant="outline"
                           size="sm"
                           onClick={() => togglePreferredUnit(unit)}
                         >
