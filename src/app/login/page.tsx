@@ -45,9 +45,9 @@ export default function LoginPage() {
         const { error } = await signUp(email, password);
         if (error) throw error;
         
-        setSuccess('Account created successfully! Please check your email to verify your account.');
-        // Switch to sign in mode
-        setIsSignUp(false);
+        setSuccess('Account created successfully! Please check your email to verify your account. The confirmation link will direct you back to this app.');
+        // Clear form but stay in sign up mode to show success message
+        setEmail('');
         setPassword('');
         setConfirmPassword('');
       } else {

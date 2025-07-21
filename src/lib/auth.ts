@@ -10,22 +10,26 @@ export const auth = {
   // Sign up new user
   async signUp(email: string, password: string) {
     try {
+      // Get the correct redirect URL based on environment
+      // For production, this should use your actual deployed URL
+      const redirectUrl = typeof window !== 'undefined' 
+        ? `${window.location.origin}/auth/confirm`
+        : process.env.NEXT_PUBLIC_APP_URL 
+          ? `${process.env.NEXT_PUBLIC_APP_URL}/auth/confirm`
+          : 'https://kitchen-mania.vercel.app/auth/confirm'
+      
       const { data, error } = await supabase.auth.signUp({
         email,
         password,
+        options: {
+          emailRedirectTo: redirectUrl,
+        }
       })
       
       if (error) throw error
       
-      // Create profile for the new user
-      if (data.user) {
-        await supabase
-          .from('profiles')
-          .insert({
-            id: data.user.id,
-            email: data.user.email!,
-          })
-      }
+      // Note: Profile creation is handled by the database trigger
+      // No need to manually create it here
       
       return { user: data.user, error: null }
     } catch (error) {
