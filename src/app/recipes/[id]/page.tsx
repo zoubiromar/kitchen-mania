@@ -252,7 +252,7 @@ export default function RecipeDetailPage() {
               priority
               onError={(e) => {
                 const target = e.target as HTMLImageElement;
-                target.src = `/api/placeholder/1200/400?text=${encodeURIComponent(recipe.title)}`;
+                target.src = `https://via.placeholder.com/1200x400.png?text=${encodeURIComponent(recipe.title)}`;
               }}
             />
           ) : (

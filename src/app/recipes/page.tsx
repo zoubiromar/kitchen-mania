@@ -271,7 +271,7 @@ export default function RecipesPage() {
                         className="object-cover"
                         onError={(e) => {
                           const target = e.target as HTMLImageElement;
-                          target.src = `/api/placeholder/400/300?text=${encodeURIComponent(recipe.title)}`;
+                          target.src = `https://via.placeholder.com/400x300.png?text=${encodeURIComponent(recipe.title)}`;
                         }}
                       />
                     ) : (

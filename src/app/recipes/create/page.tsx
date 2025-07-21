@@ -181,10 +181,10 @@ export default function CreateRecipePage() {
             }),
           });
           const imageData = await imageResponse.json();
-          imageUrl = imageData.imageUrl || `/api/placeholder/400/300?text=${encodeURIComponent(recipe.title)}`;
+          imageUrl = imageData.imageUrl || `https://via.placeholder.com/400x300.png?text=${encodeURIComponent(recipe.title)}`;
         } catch (error) {
           console.error('Error generating image:', error);
-          imageUrl = `/api/placeholder/400/300?text=${encodeURIComponent(recipe.title)}`;
+          imageUrl = `https://via.placeholder.com/400x300.png?text=${encodeURIComponent(recipe.title)}`;
         }
       }
 

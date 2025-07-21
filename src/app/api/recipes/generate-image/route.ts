@@ -21,7 +21,7 @@ export async function POST(request: NextRequest) {
     if (!process.env.OPENAI_API_KEY) {
       // Return placeholder if no API key
       return NextResponse.json({
-        imageUrl: `/api/placeholder/400/300?text=${encodeURIComponent(title)}`,
+        imageUrl: `https://via.placeholder.com/400x300.png?text=${encodeURIComponent(title)}`,
       });
     }
 
@@ -57,7 +57,7 @@ export async function POST(request: NextRequest) {
         });
 
         const imageUrl = response.data?.[0]?.url;
-        return NextResponse.json({ imageUrl: imageUrl || `/api/placeholder/400/300?text=${encodeURIComponent(title)}` });
+        return NextResponse.json({ imageUrl: imageUrl || `https://via.placeholder.com/400x300.png?text=${encodeURIComponent(title)}` });
       } catch (dalle2Error) {
         console.error('DALL-E 2 error:', dalle2Error);
         throw dalle2Error;
@@ -72,7 +72,7 @@ export async function POST(request: NextRequest) {
     
     // Return a placeholder image URL on error
     return NextResponse.json({
-      imageUrl: `/api/placeholder/400/300?text=${encodeURIComponent(title || 'Recipe')}`,
+      imageUrl: `https://via.placeholder.com/400x300.png?text=${encodeURIComponent(title || 'Recipe')}`,
     });
   }
 } 

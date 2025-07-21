@@ -9,7 +9,7 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/com
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle, DialogTrigger } from '@/components/ui/dialog';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Checkbox } from '@/components/ui/checkbox';
-import { Pencil, ChevronDown, Camera, FileText, Plus, Receipt, ChefHat, Sparkles, BookOpen } from 'lucide-react';
+import { Pencil, ChevronDown, Camera, FileText, Plus, Receipt, ChefHat, Sparkles, BookOpen, Minus } from 'lucide-react';
 import { Toast, useToast } from '@/components/toast';
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from '@/components/ui/dropdown-menu';
 import { Textarea } from '@/components/ui/textarea';
@@ -144,6 +144,9 @@ export default function PantryPage() {
   const [bulkItems, setBulkItems] = useState<{new: PantryItem[], existing: {item: PantryItem, addQuantity: number}[]}>({new: [], existing: []});
   const [showUseSavedRecipe, setShowUseSavedRecipe] = useState(false);
   const [unitSystem, setUnitSystem] = useState<'metric' | 'imperial'>('imperial');
+  const [isBulkEditMode, setIsBulkEditMode] = useState(false);
+  const [editingCategoryName, setEditingCategoryName] = useState<string | null>(null);
+  const [categoryNames, setCategoryNames] = useState<Record<string, string>>({});
 
   // Get available units based on user preferences
   const getAvailableUnits = () => {
@@ -970,7 +973,7 @@ export default function PantryPage() {
         cook_time: null,
         difficulty: 'Medium' as const,
         rating: 0,
-        image_url: imageData.imageUrl || '/api/placeholder/400/300',
+        image_url: imageData.imageUrl || `https://via.placeholder.com/400x300.png?text=${encodeURIComponent(recipe.title)}`,
         unit_system: unitSystem
       };
       
@@ -1014,7 +1017,7 @@ export default function PantryPage() {
         cook_time: null,
         difficulty: 'Medium' as const,
         rating: 0,
-        image_url: '/api/placeholder/400/300',
+        image_url: `https://via.placeholder.com/400x300.png?text=${encodeURIComponent(recipe.title)}`,
         unit_system: unitSystem
       };
       
@@ -1168,6 +1171,15 @@ export default function PantryPage() {
                 </DropdownMenuItem>
               </DropdownMenuContent>
             </DropdownMenu>
+
+            {/* Bulk Edit Button */}
+            <Button
+              variant={isBulkEditMode ? "destructive" : "outline"}
+              onClick={() => setIsBulkEditMode(!isBulkEditMode)}
+              size="sm"
+            >
+              {isBulkEditMode ? 'Done Editing' : 'Bulk Item Edit'}
+            </Button>
           </div>
         </div>
         <p className="text-sm text-gray-600 mt-1">
@@ -1760,8 +1772,40 @@ export default function PantryPage() {
             onDragLeave={() => setDragOverCategory(null)}
           >
             <CardHeader>
-              <CardTitle>{category}</CardTitle>
-              <CardDescription>{items.length} items</CardDescription>
+              {isBulkEditMode && editingCategoryName === category ? (
+                <div className="flex items-center gap-2">
+                  <Input
+                    value={categoryNames[category] || category}
+                    onChange={(e) => setCategoryNames({ ...categoryNames, [category]: e.target.value })}
+                    onBlur={() => {
+                      if (categoryNames[category] && categoryNames[category] !== category) {
+                        // Update all items in this category
+                        const newCategoryName = categoryNames[category];
+                        items.forEach(item => {
+                          updateItem(item.id, { category: newCategoryName });
+                        });
+                      }
+                      setEditingCategoryName(null);
+                    }}
+                    onKeyPress={(e) => {
+                      if (e.key === 'Enter') {
+                        e.currentTarget.blur();
+                      }
+                    }}
+                    autoFocus
+                    className="text-xl font-semibold"
+                  />
+                  <span className="text-sm text-gray-500">{items.length} items</span>
+                </div>
+              ) : (
+                <div 
+                  className={isBulkEditMode ? "cursor-pointer hover:bg-gray-50 rounded p-2 -m-2" : ""}
+                  onClick={() => isBulkEditMode && setEditingCategoryName(category)}
+                >
+                  <CardTitle>{categoryNames[category] || category}</CardTitle>
+                  <CardDescription>{items.length} items</CardDescription>
+                </div>
+              )}
             </CardHeader>
             <CardContent className="pt-6">
               <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 xl:grid-cols-6 gap-6">
@@ -1771,28 +1815,46 @@ export default function PantryPage() {
                     className={`flex flex-col items-center space-y-1 md:cursor-move pantry-item relative transition-all ${
                       selectedForRecipe.has(item.id) ? 'ring-2 ring-blue-400 ring-opacity-50 bg-blue-50/50 rounded-lg p-2' : ''
                     }`}
-                    draggable={true}
-                    onDragStart={(e) => handleDragStart(e, item)}
+                    draggable={!isBulkEditMode}
+                    onDragStart={(e) => !isBulkEditMode && handleDragStart(e, item)}
                   >
 
-                    {/* Top Controls: Edit Button and Recipe Checkbox */}
+                    {/* Top Controls: Edit Button and Recipe Checkbox or Delete Button */}
                     <div className="absolute -top-1 -right-1 flex items-center gap-1 z-10">
-                      <Button
-                        variant="ghost"
-                        size="sm"
-                        className="w-6 h-6 p-0 bg-gray-100/80 hover:bg-gray-200 rounded-full"
-                        onClick={(e) => {
-                          e.stopPropagation();
-                          setEditingItem(item);
-                        }}
-                      >
-                        <Pencil className="w-3 h-3" />
-                      </Button>
-                      <Checkbox
-                        checked={selectedForRecipe.has(item.id)}
-                        onCheckedChange={() => toggleItemForRecipe(item.id)}
-                        className="w-4 h-4 rounded-sm"
-                      />
+                      {!isBulkEditMode && (
+                        <Button
+                          variant="ghost"
+                          size="sm"
+                          className="w-6 h-6 p-0 bg-gray-100/80 hover:bg-gray-200 rounded-full"
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            setEditingItem(item);
+                          }}
+                        >
+                          <Pencil className="w-3 h-3" />
+                        </Button>
+                      )}
+                      {isBulkEditMode ? (
+                        <Button
+                          variant="ghost"
+                          size="sm"
+                          className="w-6 h-6 p-0 bg-red-100/80 hover:bg-red-200 rounded-full"
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            if (confirm(`Delete ${item.name}?`)) {
+                              removeItem(item.id);
+                            }
+                          }}
+                        >
+                          <Minus className="w-3 h-3 text-red-600" />
+                        </Button>
+                      ) : (
+                        <Checkbox
+                          checked={selectedForRecipe.has(item.id)}
+                          onCheckedChange={() => toggleItemForRecipe(item.id)}
+                          className="w-4 h-4 rounded-sm"
+                        />
+                      )}
                     </div>
                     {/* Emoji - Large and Centered */}
                     <div className="relative">
