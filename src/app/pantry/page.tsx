@@ -186,12 +186,12 @@ export default function PantryPage() {
             { name: 'Eggs', emoji: '🥚', quantity: 12, unit: 'pcs', category: 'Dairy' },
             { name: 'Milk', emoji: '🥛', quantity: 1, unit: isMetric ? 'L' : 'gal', category: 'Dairy' },
             { name: 'Bread', emoji: '🍞', quantity: 1, unit: 'loaf', category: 'Grains' },
-            { name: 'Butter', emoji: '🧈', quantity: 1, unit: 'pack', category: 'Dairy' },
+            { name: 'Butter', emoji: '🧈', quantity: 1, unit: isMetric ? 'pack' : 'stick', category: 'Dairy' },
             { name: 'Tomatoes', emoji: '🍅', quantity: 6, unit: 'pcs', category: 'Vegetables' },
             { name: 'Onions', emoji: '🧅', quantity: 3, unit: 'pcs', category: 'Vegetables' },
             { name: 'Chicken', emoji: '🍗', quantity: isMetric ? 1 : 2, unit: isMetric ? 'kg' : 'lbs', category: 'Meat' },
             { name: 'Rice', emoji: '🍚', quantity: isMetric ? 2 : 4, unit: isMetric ? 'kg' : 'lbs', category: 'Grains' },
-            { name: 'Pasta', emoji: '🍝', quantity: 2, unit: 'pack', category: 'Grains' },
+            { name: 'Pasta', emoji: '🍝', quantity: isMetric ? 500 : 1, unit: isMetric ? 'g' : 'lbs', category: 'Grains' },
             { name: 'Apples', emoji: '🍎', quantity: 6, unit: 'pcs', category: 'Fruits' }
           ];
           
@@ -328,7 +328,12 @@ export default function PantryPage() {
   };
 
   const processBulkText = async (text: string) => {
-    if (!text.trim()) return;
+    if (!text.trim()) {
+      showToast('Please enter some items to add', 'error');
+      return;
+    }
+    
+    showToast('Processing items...', 'info');
     
     try {
       // Use API to parse text with AI if available
@@ -344,7 +349,11 @@ export default function PantryPage() {
       
       const data = await response.json();
       
-      if (data.items) {
+      if (!response.ok) {
+        throw new Error(data.error || 'Failed to parse items');
+      }
+      
+      if (data.items && data.items.length > 0) {
         const parsedItems: PantryItem[] = [];
         const updates: {item: PantryItem, addQuantity: number}[] = [];
         
@@ -391,11 +400,15 @@ export default function PantryPage() {
             }
           });
         }, 100);
+        
+        showToast(`Found ${parsedItems.length} new items and ${updates.length} updates`, 'success');
+      } else {
+        showToast('No items found to add. Try a different format.', 'info');
       }
     } catch (error) {
       // Fallback to simple parsing if API fails
       console.error('Error parsing with AI:', error);
-      showToast('Using simple parsing due to API error', 'info');
+      showToast('Using simple parsing...', 'info');
       
       // Simple fallback parsing logic
       const lines = text.split('\n').filter(line => line.trim());
@@ -431,9 +444,14 @@ export default function PantryPage() {
         }
       });
       
-      setBulkItems({ new: parsedItems, existing: updates });
-      setShowBulkAdd(null);
-      setBulkText('');
+      if (parsedItems.length > 0 || updates.length > 0) {
+        setBulkItems({ new: parsedItems, existing: updates });
+        setShowBulkAdd(null);
+        setBulkText('');
+        showToast(`Found ${parsedItems.length} new items and ${updates.length} updates`, 'success');
+      } else {
+        showToast('No items found. Try format like: "2 eggs" or "3 lbs chicken"', 'error');
+      }
     }
   };
 
