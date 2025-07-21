@@ -122,6 +122,34 @@ CREATE POLICY "Users can delete own pantry items" ON pantry_items
 -- Repeat similar policies for other tables
 ```
 
+### 1.4 Storage Buckets
+Set up storage for user avatars:
+
+```sql
+-- Create storage bucket for avatars
+INSERT INTO storage.buckets (id, name, public) VALUES ('avatars', 'avatars', true);
+```
+
+Enable RLS policies for the storage bucket:
+```sql
+-- Storage bucket policies for avatars
+CREATE POLICY "Avatar images are publicly accessible"
+ON storage.objects FOR SELECT
+USING (bucket_id = 'avatars');
+
+CREATE POLICY "Users can upload their own avatar"
+ON storage.objects FOR INSERT
+WITH CHECK (bucket_id = 'avatars' AND auth.uid()::text = SPLIT_PART(name, '/', 1));
+
+CREATE POLICY "Users can update their own avatar"
+ON storage.objects FOR UPDATE
+USING (bucket_id = 'avatars' AND auth.uid()::text = SPLIT_PART(name, '/', 1));
+
+CREATE POLICY "Users can delete their own avatar"
+ON storage.objects FOR DELETE
+USING (bucket_id = 'avatars' AND auth.uid()::text = SPLIT_PART(name, '/', 1));
+```
+
 ## Phase 2: Code Integration
 
 ### 2.1 Install Dependencies

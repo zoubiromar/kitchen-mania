@@ -421,31 +421,69 @@ export default function TrackerPage() {
 
                     {/* Mobile: Stack price and merchant info vertically */}
                     <div className="mt-2 sm:mt-0 sm:flex sm:items-center sm:gap-4">
-                      {/* Lowest Price */}
+                      {/* Lowest Price with View button on mobile */}
                       {lowestPrice && (
-                        <div className="text-left sm:text-right sm:mx-4">
-                          <div className="font-semibold">
-                            ${lowestPrice.toFixed(2)} per {item.unit}
+                        <div className="flex items-center justify-between sm:block sm:text-right sm:mx-4">
+                          <div>
+                            <div className="font-semibold">
+                              ${lowestPrice.toFixed(2)} per {item.unit}
+                            </div>
+                            <div className="text-xs text-gray-500">
+                              Lowest price
+                            </div>
                           </div>
-                          <div className="text-xs text-gray-500">
-                            Lowest price
-                          </div>
+                          {!isEditMode && (
+                            <Button
+                              variant="ghost"
+                              size="sm"
+                              onClick={() => {
+                                const storeWithReceipt = item.stores && item.stores.length > 0 
+                                  ? item.stores
+                                      .filter(store => store.receipt_image)
+                                      .sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime())[0]
+                                  : null;
+                                
+                                if (storeWithReceipt?.receipt_image) {
+                                  setShowReceiptImage(storeWithReceipt.receipt_image);
+                                } else {
+                                  showToast('No receipt image available for this item', 'info');
+                                }
+                              }}
+                              className="h-8 w-8 p-0 sm:hidden"
+                              title="View Receipt"
+                            >
+                              <Eye className="w-4 h-4" />
+                            </Button>
+                          )}
                         </div>
                       )}
 
-                      {/* Latest Store */}
+                      {/* Latest Store with Edit button on mobile */}
                       {latestStore && (
-                        <div className="text-left sm:w-32 sm:text-center mt-1 sm:mt-0">
-                          <div className="font-medium text-sm">{latestStore.store}</div>
-                          <div className="text-xs text-gray-500">
-                            {new Date(latestStore.date).toLocaleDateString()}
+                        <div className="flex items-center justify-between sm:block sm:w-32 sm:text-center mt-1 sm:mt-0">
+                          <div>
+                            <div className="font-medium text-sm">{latestStore.store}</div>
+                            <div className="text-xs text-gray-500">
+                              {new Date(latestStore.date).toLocaleDateString()}
+                            </div>
                           </div>
+                          {!isEditMode && (
+                            <Button
+                              variant="ghost"
+                              size="sm"
+                              onClick={() => setEditingItem(item)}
+                              className="h-8 w-8 p-0 sm:hidden"
+                              title="Edit Item"
+                            >
+                              <Edit className="w-4 h-4" />
+                            </Button>
+                          )}
                         </div>
                       )}
 
-                      {/* Actions */}
+                      {/* Actions - Desktop only */}
                       {!isEditMode && (
-                        <div className="flex flex-col items-center gap-1 sm:ml-4 mt-2 sm:mt-0">
+                        <div className="hidden sm:flex flex-col items-center gap-1 sm:ml-4">
                           {/* View Receipt Button - Always show */}
                           <Button
                             variant="ghost"

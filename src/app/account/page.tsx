@@ -310,8 +310,8 @@ export default function AccountPage() {
         </div>
       )}
 
-      <Tabs defaultValue="profile" className="space-y-4">
-        <TabsList className="grid w-full grid-cols-2 lg:grid-cols-4">
+      <Tabs defaultValue="profile" className="space-y-6">
+        <TabsList className="grid w-full grid-cols-2 lg:grid-cols-4 mb-6">
           <TabsTrigger value="profile">Profile</TabsTrigger>
           <TabsTrigger value="preferences">Preferences</TabsTrigger>
           <TabsTrigger value="security">Security</TabsTrigger>
@@ -319,7 +319,7 @@ export default function AccountPage() {
         </TabsList>
 
         {/* Profile Tab */}
-        <TabsContent value="profile">
+        <TabsContent value="profile" className="mt-6">
           <Card>
             <CardHeader>
               <CardTitle>Profile Information</CardTitle>
@@ -416,7 +416,7 @@ export default function AccountPage() {
         </TabsContent>
 
         {/* Preferences Tab */}
-        <TabsContent value="preferences">
+        <TabsContent value="preferences" className="mt-6">
           <Card>
             <CardHeader>
               <CardTitle>Preferences</CardTitle>
@@ -589,7 +589,7 @@ export default function AccountPage() {
         </TabsContent>
 
         {/* Security Tab */}
-        <TabsContent value="security">
+        <TabsContent value="security" className="mt-6">
           <Card>
             <CardHeader>
               <CardTitle>Security Settings</CardTitle>
@@ -644,7 +644,7 @@ export default function AccountPage() {
         </TabsContent>
 
         {/* Danger Zone Tab */}
-        <TabsContent value="danger">
+        <TabsContent value="danger" className="mt-6">
           <Card className="border-red-200">
             <CardHeader>
               <CardTitle className="text-red-600">Danger Zone</CardTitle>

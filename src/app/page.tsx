@@ -15,20 +15,10 @@ export default function HomePage() {
           Your smart pantry tracking solution. Keep track of your ingredients, 
           reduce food waste, and discover amazing recipes with AI-powered recommendations.
         </p>
-        <div className="space-x-4">
-          <Link href="/pantry">
-            <Button size="lg">
-              Get Started
-            </Button>
-          </Link>
-          <Link href="/tracker">
-            <Button variant="outline" size="lg">
-              Price Tracker
-            </Button>
-          </Link>
+        <div className="text-center">
           <Link href="/login">
             <Button variant="outline" size="lg">
-              Sign In
+              Sign In to Get Started
             </Button>
           </Link>
         </div>
