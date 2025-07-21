@@ -1,0 +1,18 @@
+{
+  "framework": "nextjs",
+  "buildCommand": "npm run build",
+  "devCommand": "npm run dev",
+  "installCommand": "npm install",
+  "regions": ["iad1"],
+  "functions": {
+    "src/app/api/recipes/generate-image/route.ts": {
+      "maxDuration": 30
+    },
+    "src/app/api/pantry/parse-receipt/route.ts": {
+      "maxDuration": 30
+    },
+    "src/app/api/recipes/recommend/route.ts": {
+      "maxDuration": 30
+    }
+  }
+} 
