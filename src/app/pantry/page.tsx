@@ -1405,20 +1405,13 @@ export default function PantryPage() {
                 {items.map((item) => (
                   <div 
                     key={item.id} 
-                    className={`flex flex-col items-center space-y-1 cursor-move pantry-item relative transition-all ${
+                    className={`flex flex-col items-center space-y-1 md:cursor-move pantry-item relative transition-all ${
                       selectedForRecipe.has(item.id) ? 'ring-2 ring-blue-400 ring-opacity-50 bg-blue-50/50 rounded-lg p-2' : ''
                     }`}
-                    draggable
+                    draggable={true}
                     onDragStart={(e) => handleDragStart(e, item)}
                   >
-                    {/* Mobile Drag Handle */}
-                    <div className="md:hidden absolute -top-1 -left-1 z-10">
-                      <div className="w-6 h-6 bg-gray-100/80 rounded-full flex items-center justify-center">
-                        <svg className="w-3 h-3 text-gray-600" viewBox="0 0 24 24" fill="currentColor">
-                          <path d="M9 5h2v2H9V5zm0 4h2v2H9V9zm0 4h2v2H9v-2zm0 4h2v2H9v-2zm4-12h2v2h-2V5zm0 4h2v2h-2V9zm0 4h2v2h-2v-2zm0 4h2v2h-2v-2z"/>
-                        </svg>
-                      </div>
-                    </div>
+
                     {/* Top Controls: Edit Button and Recipe Checkbox */}
                     <div className="absolute -top-1 -right-1 flex items-center gap-1 z-10">
                       <Button
