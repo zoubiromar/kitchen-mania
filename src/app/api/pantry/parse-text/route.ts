@@ -81,19 +81,29 @@ export async function POST(request: NextRequest) {
       : 'Prefer imperial units: lbs, oz for weight; cups, fl oz for volume';
     
     const systemPrompt = `You are a helpful assistant that parses grocery lists into structured data.
-Parse the provided text into a list of grocery items. For each item:
+Parse the provided text into a list of grocery items. 
 
+CRITICAL: Each line may contain MULTIPLE items separated by commas, "and", or other delimiters.
+For example: "2 oil litres, 5 eggs and 1 kg of butter" should parse as THREE separate items:
+- oil: 2 litres
+- eggs: 5 pcs
+- butter: 1 kg
+
+Parse carefully and extract ALL items. For each item:
 1. Check if it matches an existing pantry item name (case-insensitive)
 2. Extract the quantity and unit
 3. Categorize appropriately
 
-IMPORTANT RULES:
+PARSING RULES:
+- Split on commas, "and", "&", semicolons
+- Handle formats like: "2 lbs chicken", "chicken 2 lbs", "2 chicken", "oil litres" (means 1 litre of oil)
+- If quantity appears after the item name without a number (e.g., "oil litres"), assume quantity is 1
 - If an item exists in the pantry, use the EXACT existing name and set exists=true
 - If it's a new item, set exists=false and use a proper capitalized name
 - Always include purchaseDate as today's date: ${today}
 - ${unitPreferences}
-- Standard units: pcs, lbs, kg, g, oz, cups, tbsp, tsp, ml, l, fl oz, etc.
-- Categories: Fruits, Vegetables, Meat, Dairy, Grains, Snacks, Beverages, Condiments, or Uncategorized
+- Standard units: pcs (for countable items like eggs), lbs, kg, g, oz, cups, tbsp, tsp, ml, l, litres, liters, fl oz, etc.
+- Categories: Fruits, Vegetables, Meat, Dairy, Grains, Snacks, Beverages, Condiments, Oils, or Uncategorized
 
 ${existingItemsText}
 

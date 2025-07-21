@@ -331,30 +331,24 @@ export default function PantryPage() {
   };
 
   const processBulkText = async (text: string) => {
-    if (!text.trim()) {
-      showToast('Please enter some items to add', 'error');
-      return;
-    }
-    
-    showToast('Processing items...', 'info');
+    if (!text.trim()) return;
     
     try {
-      // Use API to parse text with AI if available
       const response = await fetch('/api/pantry/parse-text', {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
+        headers: {
+          'Content-Type': 'application/json',
+        },
         body: JSON.stringify({ 
           text,
-          existingItems: pantryItems.map(item => ({ name: item.name })),
-          unitSystem: unitSystem
+          existingItems: pantryItems.map(item => ({
+            name: item.name,
+            category: item.category
+          }))
         }),
       });
       
       const data = await response.json();
-      
-      if (!response.ok) {
-        throw new Error(data.error || 'Failed to parse items');
-      }
       
       if (data.items && data.items.length > 0) {
         const parsedItems: PantryItem[] = [];
@@ -376,7 +370,7 @@ export default function PantryPage() {
           } else {
             // Add as new item with default emoji
             const defaultEmoji = guessEmojiForItem(parsedItem.name) || '📦';
-            const itemId = Date.now().toString() + Math.random();
+            const itemId = crypto.randomUUID();
             parsedItems.push({
               id: itemId,
               name: parsedItem.name,
@@ -410,238 +404,119 @@ export default function PantryPage() {
         showToast('No items found to add. Try a different format.', 'info');
       }
     } catch (error) {
-      // Fallback to simple parsing if API fails
-      console.error('Error parsing with AI:', error);
-      showToast('Using simple parsing...', 'info');
-      
-      // Simple fallback parsing logic
-      const lines = text.split('\n').filter(line => line.trim());
-      const parsedItems: PantryItem[] = [];
-      const updates: {item: PantryItem, addQuantity: number}[] = [];
-      
-      lines.forEach(line => {
-        // Pattern 1: "2 lbs chicken" or "2 chicken"
-        const match = line.match(/^(\d+(?:\.\d+)?)\s*([a-zA-Z]+)?\s+(.+)$/);
-        if (match) {
-          const [, quantity, unit, name] = match;
-          const existingItem = pantryItems.find(item => 
-            item.name.toLowerCase() === name.toLowerCase()
-          );
-          
-          if (existingItem) {
-            updates.push({
-              item: existingItem,
-              addQuantity: parseFloat(quantity)
-            });
-          } else {
-            const defaultEmoji = guessEmojiForItem(name) || '📦';
-            parsedItems.push({
-              id: Date.now().toString() + Math.random(),
-              name: name.trim(),
-              emoji: defaultEmoji,
-              quantity: parseFloat(quantity),
-              unit: unit || 'pcs',
-              category: 'Uncategorized',
-              purchaseDate: new Date().toISOString().split('T')[0]
-            });
-          }
-        } else if (line.trim()) {
-          // Pattern 2: Just item name (assume 1 piece)
-          const name = line.trim();
-          const existingItem = pantryItems.find(item => 
-            item.name.toLowerCase() === name.toLowerCase()
-          );
-          
-          if (existingItem) {
-            updates.push({
-              item: existingItem,
-              addQuantity: 1
-            });
-          } else {
-            const defaultEmoji = guessEmojiForItem(name) || '📦';
-            parsedItems.push({
-              id: Date.now().toString() + Math.random(),
-              name: name,
-              emoji: defaultEmoji,
-              quantity: 1,
-              unit: 'pcs',
-              category: 'Uncategorized',
-              purchaseDate: new Date().toISOString().split('T')[0]
-            });
-          }
-        }
-      });
-      
-      if (parsedItems.length > 0 || updates.length > 0) {
-        setBulkItems({ new: parsedItems, existing: updates });
-        setShowBulkAdd(null);
-        setBulkText('');
-        showToast(`Found ${parsedItems.length} new items and ${updates.length} updates`, 'success');
-      } else {
-        showToast('No items found. Try format like: "2 eggs" or "3 lbs chicken"', 'error');
-      }
+      console.error('Error processing text:', error);
+      showToast('Failed to process text. Please try again.', 'error');
     }
   };
 
-  const processReceiptImage = async (imageUrl: string) => {
+  const processReceiptImage = async (base64Image: string) => {
+    setBulkImage(null);
+    showToast('Processing receipt...', 'info');
+    
     try {
-      showToast('Processing receipt...', 'info');
-      
-      // Call API to process receipt
       const response = await fetch('/api/pantry/parse-receipt', {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
+        headers: {
+          'Content-Type': 'application/json',
+        },
         body: JSON.stringify({ 
-          imageBase64: imageUrl,
-          existingItems: pantryItems.map(item => ({ name: item.name })),
-          unitSystem: unitSystem
+          image: base64Image,
+          existingItems: pantryItems.map(item => ({
+            name: item.name,
+            category: item.category
+          }))
         }),
       });
       
-      const data = await response.json();
-      
-      // Check if the response indicates an error
-      if (!response.ok || data.error) {
-        showToast(data.error || 'Failed to process receipt. Please ensure the image is a valid receipt.', 'error');
-        setBulkImage(null);
-        return;
+      if (!response.ok) {
+        const errorData = await response.json();
+        throw new Error(errorData.error || 'Failed to parse receipt');
       }
       
-      if (data.items) {
+      const data = await response.json();
+      
+      if (data.items && data.items.length > 0) {
         const parsedItems: PantryItem[] = [];
         const updates: {item: PantryItem, addQuantity: number}[] = [];
-        const priceData: any[] = [];
+        const itemsForPriceTracking: any[] = [];
         
-        data.items.forEach((receiptItem: any) => {
-          if (receiptItem.exists) {
-            // Find the existing item
+        data.items.forEach((parsedItem: any) => {
+          if (parsedItem.exists) {
             const existingItem = pantryItems.find(item => 
-              item.name === receiptItem.name
+              item.name.toLowerCase() === parsedItem.name.toLowerCase()
             );
             
             if (existingItem) {
               updates.push({
                 item: existingItem,
-                addQuantity: receiptItem.quantity
+                addQuantity: parsedItem.quantity
               });
             }
           } else {
-            // Add as new item with default emoji
-            const defaultEmoji = guessEmojiForItem(receiptItem.name) || '📦';
+            const defaultEmoji = guessEmojiForItem(parsedItem.name) || '🛒';
+            const itemId = crypto.randomUUID();
             parsedItems.push({
-              id: Date.now().toString() + Math.random(),
-              name: receiptItem.name,
+              id: itemId,
+              name: parsedItem.name,
               emoji: defaultEmoji,
-              quantity: receiptItem.quantity,
-              unit: receiptItem.unit,
-              category: receiptItem.category || 'Uncategorized',
-              purchaseDate: receiptItem.purchaseDate || data.date || new Date().toISOString().split('T')[0]
+              quantity: parsedItem.quantity,
+              unit: parsedItem.unit,
+              category: parsedItem.category || 'Uncategorized',
+              purchaseDate: data.date || new Date().toISOString().split('T')[0],
+              expiryDate: parsedItem.expiryDate
             });
           }
           
-          // Save price data for tracker - always save if it came from a receipt
-          if (receiptItem.price || receiptItem.totalPrice || data.merchant) {
-            const itemEmoji = guessEmojiForItem(receiptItem.name) || '📦';
-            priceData.push({
-              id: Date.now().toString() + Math.random(),
-              name: receiptItem.name,
-              pricePerUnit: receiptItem.price || 0,
-              totalPrice: receiptItem.totalPrice || 0,
-              quantity: receiptItem.quantity || 1,
-              unit: receiptItem.unit || 'pcs',
+          // Prepare data for price tracking
+          if (parsedItem.price) {
+            itemsForPriceTracking.push({
+              id: crypto.randomUUID(),
+              name: parsedItem.name,
+              quantity: parsedItem.quantity,
+              unit: parsedItem.unit,
+              price: parsedItem.price,
+              totalPrice: parsedItem.totalPrice || (parsedItem.price * parsedItem.quantity),
               merchant: data.merchant || 'Unknown Store',
               date: data.date || new Date().toISOString().split('T')[0],
-              receiptImage: imageUrl,
-              emoji: itemEmoji
+              emoji: guessEmojiForItem(parsedItem.name) || '🛒'
             });
           }
         });
         
-        // Save receipt data (without image to save space)
-        if (data.merchant || data.items.length > 0) {
-          const receiptId = Date.now().toString();
+        // Save receipt data and price history
+        if (itemsForPriceTracking.length > 0) {
+          const receiptId = crypto.randomUUID();
           const receiptData = {
             id: receiptId,
-            merchant: data.merchant || 'Unknown',
+            merchant: data.merchant || 'Unknown Store',
             date: data.date || new Date().toISOString().split('T')[0],
-            total: data.total || priceData.reduce((sum: number, item: any) => sum + (item.totalPrice || 0), 0),
-            itemCount: data.items.length,
-            items: data.items.map((item: any) => ({
-              name: item.name,
-              quantity: item.quantity,
-              unit: item.unit,
-              price: item.price,
-              totalPrice: item.totalPrice
-            }))
+            total: data.total || 0,
+            itemCount: itemsForPriceTracking.length,
+            items: itemsForPriceTracking,
+            receiptImage: base64Image
           };
           
-          // Save receipt without image
-          const receiptSaved = saveReceiptData(receiptData);
+          saveReceiptData(receiptData);
           
-          if (receiptSaved) {
-            // Update price data with receipt ID
-            priceData.forEach(item => item.receiptId = receiptId);
-          }
+          // Save price tracking data with receipt image
+          itemsForPriceTracking.forEach(item => {
+            savePriceData({
+              ...item,
+              receiptId: receiptId,
+              stores: [{
+                store: data.merchant || 'Unknown Store',
+                price: item.price,
+                date: data.date || new Date().toISOString().split('T')[0],
+                receipt_image: base64Image
+              }]
+            });
+          });
         }
         
-        // Save price tracking data to database
-        if (user && priceData.length > 0) {
-          for (const item of priceData) {
-            try {
-              // Check if item already exists in price tracker
-              const { data: existingItems } = await database.priceTracker.getAll(user.id);
-              const existingItem = existingItems?.find(existing => existing.name.toLowerCase() === item.name.toLowerCase());
-              
-              if (existingItem) {
-                // Add new store price to existing item
-                const currentStores = existingItem.stores || [];
-                const newStoreEntry = {
-                  store: item.merchant,
-                  price: item.pricePerUnit || 0,
-                  total_price: item.totalPrice || 0,
-                  quantity: item.quantity,
-                  date: item.date,
-                  receipt_image: item.receiptImage || null
-                };
-                
-                // Avoid duplicates from same store on same date
-                const updatedStores = currentStores.filter((store: any) => 
-                  !(store.store === item.merchant && store.date === item.date)
-                );
-                updatedStores.push(newStoreEntry);
-                
-                await database.priceTracker.updateStorePrices(existingItem.id, user.id, updatedStores);
-              } else {
-                // Create new price tracking item
-                await database.priceTracker.add(user.id, {
-                  name: item.name,
-                  stores: [{
-                    store: item.merchant,
-                    price: item.pricePerUnit || 0,
-                    total_price: item.totalPrice || 0,
-                    quantity: item.quantity,
-                    date: item.date,
-                    receipt_image: item.receiptImage || null
-                  }],
-                  target_price: null,
-                  unit: item.unit,
-                  emoji: item.emoji || '🛒'
-                });
-              }
-            } catch (error) {
-              console.error('Error saving price data:', error);
-            }
-          }
-        }
-        
-        // Set bulk items immediately
         setBulkItems({ new: parsedItems, existing: updates });
         setShowBulkAdd(null);
-        setBulkImage(null);
-        const priceTrackMsg = priceData.length > 0 ? ` and added ${priceData.length} to price tracker` : '';
-        showToast(`Processed ${data.items.length} items from receipt${priceTrackMsg}`, 'success');
         
-        // Generate better emojis in background (non-blocking)
+        // Generate emojis in background
         setTimeout(() => {
           parsedItems.forEach(async (item) => {
             try {
@@ -651,10 +526,14 @@ export default function PantryPage() {
             }
           });
         }, 100);
+        
+        showToast(`Found ${parsedItems.length} new items and ${updates.length} updates`, 'success');
+      } else {
+        showToast('No items found on receipt', 'error');
       }
     } catch (error) {
       console.error('Error processing receipt:', error);
-      showToast('Failed to process receipt', 'error');
+      showToast('Failed to process receipt. Please try again.', 'error');
     }
   };
 
@@ -810,38 +689,13 @@ export default function PantryPage() {
       });
       
       const data = await response.json();
-      if (data.recipes && Array.isArray(data.recipes)) {
-        const formattedRecipes: Recipe[] = data.recipes.map((recipe: any, index: number) => ({
-          id: Date.now().toString() + index,
-          title: recipe.title || `Recipe ${index + 1}`,
-          description: recipe.description,
-          ingredients: recipe.ingredients?.map((ing: any) => {
-            // Handle both string and object formats
-            if (typeof ing === 'string') {
-              // Parse string format like "2 cups flour"
-              const match = ing.match(/^(\d+(?:\.\d+)?)\s*([a-zA-Z]+)?\s+(?:of\s+)?(.+)$/);
-              if (match) {
-                return {
-                  name: match[3].trim(),
-                  quantity: parseFloat(match[1]),
-                  unit: match[2] || 'pcs'
-                };
-              }
-              return { name: ing, quantity: 1, unit: 'pcs' };
-            }
-            // Ensure object has correct field order and clean name
-            return {
-              name: ing.name?.replace(/^\d+\s*/, '').trim(), // Remove any leading numbers
-              quantity: ing.quantity || 1,
-              unit: ing.unit || 'pcs'
-            };
-          }) || [],
-          instructions: recipe.instructions || [],
-          servings: recipe.servings,
-          prepTime: recipe.prepTime,
+      if (data.recipes && data.recipes.length > 0) {
+        const recipesWithIds = data.recipes.map((recipe: any) => ({
+          ...recipe,
+          id: crypto.randomUUID(),
           usageFromPantry: recipe.usageFromPantry || []
         }));
-        setRecipes(formattedRecipes);
+        setRecipes(recipesWithIds);
       }
     } catch (error) {
       console.error('Error getting recommendations:', error);
