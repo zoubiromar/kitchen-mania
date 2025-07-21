@@ -52,12 +52,57 @@ interface Recipe {
   usedQuantities?: { itemId: string; quantity: number; unit: string }[];
 }
 
-const commonEmojis = ['🍅', '🥕', '🧅', '🥔', '🌽', '🥦', '🥬', '🥒', '🌶️', '🫑', '🥑', '🍆', '🧄', '🍄', '🥜', '🌰', '🍞', '🥐', '🥖', '🥨', '🥯', '🥞', '🧇', '🧈', '🍳', '🥚', '🧀', '🥓', '🥩', '🍗', '🍖', '🦴', '🌭', '🍔', '🍟', '🍕', '🥙', '🌮', '🌯', '🥗', '🥘', '🍝', '🍜', '🍲', '🍛', '🍱', '🍚', '🍙', '🍘', '🍥', '🍣', '🍤', '🦪', '🦑', '🦐', '🦞', '🦀', '🐙', '🍠', '🍢', '🍡', '🍧', '🍨', '🍦', '🥧', '🧁', '🍰', '🎂', '🍮', '🍭', '🍬', '🍫', '🍿', '🍩', '🍪', '🌰', '🥨', '🥕', '🌶️', '🥔', '🍠', '🥐', '🍞', '🥖', '🥨', '🧀', '🥚', '🍳', '🧈', '🥞', '🧇', '🥓', '🥩', '🍗', '🍖', '🍕', '🌭', '🍔', '🥙', '🌮', '🌯', '🍜', '🍝', '🍛', '🍲', '🍱', '🍘', '🍙', '🍚', '🍢', '🍣', '🍤', '🦐', '🦑', '🦪', '🍰', '🧁', '🥧', '🍦', '🍨', '🍧', '🍬', '🍭', '🍫', '🍿', '🥤', '🧃', '🥛', '☕', '🍵', '🧉', '🍶', '🍺', '🍻', '🥂', '🍷', '🥃', '🍸', '🍹', '🧊'];
+const commonEmojis = ['🍅', '🥕', '🧅', '🥔', '🌽', '🥦', '🥬', '🥒', '🌶️', '🫑', '🥑', '🍆', '🧄', '🍄', '🥜', '🌰', '🍞', '🥐', '🥖', '🥨', '🥯', '🥞', '🧇', '🧈', '🍳', '🥚', '🧀', '🥓', '🥩', '🍗', '🍖', '🦴', '🌭', '🍔', '🍟', '🍕', '🥙', '🌮', '🌯', '��', '8', '🍝', '🍜', '🍲', '🍛', '🍱', '🍚', '🍙', '🍘', '🍥', '🍣', '🍤', '🦪', '🦑', '🦐', '🦞', '🦀', '🐙', '🍠', '🍢', '🍡', '🍧', '🍨', '🍦', '🥧', '🧁', '🍰', '🎂', '🍮', '🍭', '🍬', '🍫', '🍿', '🍩', '🍪', '🌰', '🥨', '🥕', '🌶️', '🥔', '🍠', '🥐', '🍞', '🥖', '🥨', '🧀', '🥚', '🍳', '🧈', '🥞', '🧇', '🥓', '🥩', '🍗', '🍖', '🍕', '🌭', '🍔', '🥙', '🌮', '🌯', '🍜', '🍝', '🍛', '🍲', '🍱', '🍘', '🍙', '🍚', '🍢', '🍣', '🍤', '🦐', '🦑', '🦪', '🍰', '🧁', '🥧', '🍦', '🍨', '🍧', '🍬', '🍭', '🍫', '🍿', '🥤', '🧃', '🥛', '☕', '🍵', '🧉', '🍶', '🍺', '🍻', '🥂', '🍷', '🥃', '🍸', '🍹', '🧊'];
 
 const standardUnits = [
   'pcs', 'lbs', 'kg', 'g', 'oz', 'cups', 'tbsp', 'tsp', 'ml', 'l', 'fl oz', 'pt', 'qt', 'gal',
   'dozen', 'bunch', 'bag', 'box', 'can', 'jar', 'bottle', 'package', 'slice', 'clove', 'head', 'stalk'
 ];
+
+// Helper function to guess emoji based on item name
+const guessEmojiForItem = (itemName: string): string => {
+  const name = itemName.toLowerCase();
+  const emojiMap: Record<string, string> = {
+    // Fruits
+    'apple': '🍎', 'banana': '🍌', 'orange': '🍊', 'grape': '🍇', 'strawberry': '🍓',
+    'cherry': '🍒', 'peach': '🍑', 'pear': '🍐', 'pineapple': '🍍', 'mango': '🥭',
+    'watermelon': '🍉', 'melon': '🍈', 'lemon': '🍋', 'avocado': '🥑',
+    // Vegetables
+    'tomato': '🍅', 'carrot': '🥕', 'corn': '🌽', 'potato': '🥔', 'onion': '🧅',
+    'garlic': '🧄', 'broccoli': '🥦', 'cucumber': '🥒', 'lettuce': '🥬', 'pepper': '🌶️',
+    'mushroom': '🍄', 'eggplant': '🍆',
+    // Meat & Protein
+    'chicken': '🍗', 'beef': '🥩', 'pork': '🥓', 'bacon': '🥓', 'egg': '🥚',
+    'fish': '🐟', 'shrimp': '🦐', 'steak': '🥩', 'meat': '🍖',
+    // Dairy
+    'milk': '🥛', 'cheese': '🧀', 'butter': '🧈', 'yogurt': '🥛', 'cream': '🥛',
+    // Grains & Baked
+    'bread': '🍞', 'rice': '🍚', 'pasta': '🍝', 'noodle': '🍜', 'cereal': '🥣',
+    'cookie': '🍪', 'cake': '🍰', 'donut': '🍩', 'croissant': '🥐',
+    // Beverages
+    'coffee': '☕', 'tea': '🍵', 'juice': '🧃', 'soda': '🥤', 'water': '💧',
+    'wine': '🍷', 'beer': '🍺',
+    // Other
+    'honey': '🍯', 'salt': '🧂', 'sugar': '🍬', 'oil': '🫗', 'chocolate': '🍫',
+    'ice cream': '🍦', 'pizza': '🍕', 'burger': '🍔', 'sandwich': '🥪', 'soup': '🍲'
+  };
+  
+  // Check if item name contains any of the keywords
+  for (const [keyword, emoji] of Object.entries(emojiMap)) {
+    if (name.includes(keyword)) {
+      return emoji;
+    }
+  }
+  
+  // Default emojis by category keywords
+  if (name.includes('fruit')) return '🍎';
+  if (name.includes('vegetable') || name.includes('veggie')) return '🥕';
+  if (name.includes('meat')) return '🥩';
+  if (name.includes('dairy')) return '🥛';
+  if (name.includes('grain')) return '🌾';
+  
+  return '📦'; // Default emoji
+};
 
 export default function PantryPage() {
   const { toast, showToast, hideToast } = useToast();
@@ -134,7 +179,53 @@ export default function PantryPage() {
         const { data: items, error } = await database.pantry.getAll(user.id);
         if (error) throw error;
         
-        setPantryItems(items || []);
+        // If user has no items, add some default items
+        if (!items || items.length === 0) {
+          const isMetric = profile?.unit_system === 'metric';
+          const defaultItems = [
+            { name: 'Eggs', emoji: '🥚', quantity: 12, unit: 'pcs', category: 'Dairy' },
+            { name: 'Milk', emoji: '🥛', quantity: 1, unit: isMetric ? 'L' : 'gal', category: 'Dairy' },
+            { name: 'Bread', emoji: '🍞', quantity: 1, unit: 'loaf', category: 'Grains' },
+            { name: 'Butter', emoji: '🧈', quantity: 1, unit: 'pack', category: 'Dairy' },
+            { name: 'Tomatoes', emoji: '🍅', quantity: 6, unit: 'pcs', category: 'Vegetables' },
+            { name: 'Onions', emoji: '🧅', quantity: 3, unit: 'pcs', category: 'Vegetables' },
+            { name: 'Chicken', emoji: '🍗', quantity: isMetric ? 1 : 2, unit: isMetric ? 'kg' : 'lbs', category: 'Meat' },
+            { name: 'Rice', emoji: '🍚', quantity: isMetric ? 2 : 4, unit: isMetric ? 'kg' : 'lbs', category: 'Grains' },
+            { name: 'Pasta', emoji: '🍝', quantity: 2, unit: 'pack', category: 'Grains' },
+            { name: 'Apples', emoji: '🍎', quantity: 6, unit: 'pcs', category: 'Fruits' }
+          ];
+          
+          // Add default items to database
+          const addedItems = [];
+          for (const item of defaultItems) {
+            try {
+              const { data, error } = await database.pantry.add(user.id, {
+                ...item,
+                expiry_date: null,
+                price: null
+              });
+              if (data && !error) {
+                addedItems.push({
+                  id: data.id,
+                  name: data.name,
+                  emoji: data.emoji,
+                  quantity: data.quantity,
+                  unit: data.unit,
+                  category: data.category,
+                  expiryDate: data.expiry_date,
+                  purchaseDate: data.created_at
+                });
+              }
+            } catch (err) {
+              console.error('Error adding default item:', err);
+            }
+          }
+          
+          setPantryItems(addedItems);
+          showToast('Welcome! We\'ve added some starter items to your pantry', 'success');
+        } else {
+          setPantryItems(items);
+        }
         
         // Load saved recipes
         const { data: recipes } = await database.recipes.getAll(user.id);
@@ -271,11 +362,12 @@ export default function PantryPage() {
               });
             }
           } else {
-            // Add as new item
+            // Add as new item with default emoji
+            const defaultEmoji = guessEmojiForItem(parsedItem.name) || '📦';
             parsedItems.push({
               id: Date.now().toString() + Math.random(),
               name: parsedItem.name,
-              emoji: '',
+              emoji: defaultEmoji,
               quantity: parsedItem.quantity,
               unit: parsedItem.unit,
               category: parsedItem.category || 'Uncategorized',
@@ -284,14 +376,21 @@ export default function PantryPage() {
           }
         });
         
-        // Generate emojis for new items in background
-        parsedItems.forEach(item => {
-          generateEmojiForItem(item.name, item.id);
-        });
-        
+        // Set bulk items immediately
         setBulkItems({ new: parsedItems, existing: updates });
         setShowBulkAdd(null);
         setBulkText('');
+        
+        // Generate better emojis in background (non-blocking)
+        setTimeout(() => {
+          parsedItems.forEach(async (item) => {
+            try {
+              await generateEmojiForItem(item.name, item.id);
+            } catch (err) {
+              console.error('Failed to generate emoji for', item.name);
+            }
+          });
+        }, 100);
       }
     } catch (error) {
       // Fallback to simple parsing if API fails
@@ -318,10 +417,11 @@ export default function PantryPage() {
               addQuantity: parseFloat(quantity)
             });
           } else {
+            const defaultEmoji = guessEmojiForItem(name) || '📦';
             parsedItems.push({
               id: Date.now().toString() + Math.random(),
               name,
-              emoji: '',
+              emoji: defaultEmoji,
               quantity: parseFloat(quantity),
               unit: unit || 'pcs',
               category: 'Uncategorized',
@@ -380,11 +480,12 @@ export default function PantryPage() {
               });
             }
           } else {
-            // Add as new item
+            // Add as new item with default emoji
+            const defaultEmoji = guessEmojiForItem(receiptItem.name) || '📦';
             parsedItems.push({
               id: Date.now().toString() + Math.random(),
               name: receiptItem.name,
-              emoji: '',
+              emoji: defaultEmoji,
               quantity: receiptItem.quantity,
               unit: receiptItem.unit,
               category: receiptItem.category || 'Uncategorized',
@@ -483,15 +584,22 @@ export default function PantryPage() {
           }
         }
         
-        // Generate emojis for new items
-        for (const item of parsedItems) {
-          await generateEmojiForItem(item.name, item.id);
-        }
-        
+        // Set bulk items immediately
         setBulkItems({ new: parsedItems, existing: updates });
         setShowBulkAdd(null);
         setBulkImage(null);
         showToast(`Processed ${data.items.length} items from receipt`, 'success');
+        
+        // Generate better emojis in background (non-blocking)
+        setTimeout(() => {
+          parsedItems.forEach(async (item) => {
+            try {
+              await generateEmojiForItem(item.name, item.id);
+            } catch (err) {
+              console.error('Failed to generate emoji for', item.name);
+            }
+          });
+        }, 100);
       }
     } catch (error) {
       console.error('Error processing receipt:', error);
