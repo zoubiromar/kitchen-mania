@@ -373,8 +373,9 @@ export default function PantryPage() {
           } else {
             // Add as new item with default emoji
             const defaultEmoji = guessEmojiForItem(parsedItem.name) || '📦';
+            const itemId = Date.now().toString() + Math.random();
             parsedItems.push({
-              id: Date.now().toString() + Math.random(),
+              id: itemId,
               name: parsedItem.name,
               emoji: defaultEmoji,
               quantity: parsedItem.quantity,
@@ -535,18 +536,20 @@ export default function PantryPage() {
             });
           }
           
-          // Save price data for tracker
-          if (receiptItem.price || receiptItem.totalPrice) {
+          // Save price data for tracker - always save if it came from a receipt
+          if (receiptItem.price || receiptItem.totalPrice || data.merchant) {
+            const itemEmoji = guessEmojiForItem(receiptItem.name) || '📦';
             priceData.push({
               id: Date.now().toString() + Math.random(),
               name: receiptItem.name,
-              pricePerUnit: receiptItem.price,
-              totalPrice: receiptItem.totalPrice,
-              quantity: receiptItem.quantity,
-              unit: receiptItem.unit,
-              merchant: data.merchant || 'Unknown',
+              pricePerUnit: receiptItem.price || 0,
+              totalPrice: receiptItem.totalPrice || 0,
+              quantity: receiptItem.quantity || 1,
+              unit: receiptItem.unit || 'pcs',
+              merchant: data.merchant || 'Unknown Store',
               date: data.date || new Date().toISOString().split('T')[0],
-              receiptImage: imageUrl
+              receiptImage: imageUrl,
+              emoji: itemEmoji
             });
           }
         });
@@ -630,7 +633,8 @@ export default function PantryPage() {
         setBulkItems({ new: parsedItems, existing: updates });
         setShowBulkAdd(null);
         setBulkImage(null);
-        showToast(`Processed ${data.items.length} items from receipt`, 'success');
+        const priceTrackMsg = priceData.length > 0 ? ` and added ${priceData.length} to price tracker` : '';
+        showToast(`Processed ${data.items.length} items from receipt${priceTrackMsg}`, 'success');
         
         // Generate better emojis in background (non-blocking)
         setTimeout(() => {
