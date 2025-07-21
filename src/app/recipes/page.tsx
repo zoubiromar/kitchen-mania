@@ -11,6 +11,7 @@ import { Trash2, Plus } from 'lucide-react';
 import { useAuth } from '@/components/AuthContext';
 import { database } from '@/lib/database';
 import { ProtectedRoute } from '@/components/AuthContext';
+import { useRouter } from 'next/navigation';
 
 interface RecipeIngredient {
   name: string;
@@ -36,6 +37,7 @@ interface Recipe {
 
 export default function RecipesPage() {
   const { user } = useAuth();
+  const router = useRouter();
   const [recipes, setRecipes] = useState<Recipe[]>([]);
   const [filteredRecipes, setFilteredRecipes] = useState<Recipe[]>([]);
   const [searchTerm, setSearchTerm] = useState('');
@@ -44,39 +46,56 @@ export default function RecipesPage() {
   const [allTags, setAllTags] = useState<string[]>([]);
   const [isLoading, setIsLoading] = useState(true);
 
-  useEffect(() => {
+  const loadRecipes = async () => {
     if (!user) return;
     
-    const loadRecipes = async () => {
-      setIsLoading(true);
-      try {
-        const { data: dbRecipes, error } = await database.recipes.getAll(user.id);
-        if (error) throw error;
-        
-        const formattedRecipes = (dbRecipes || []).map(recipe => ({
-          ...recipe,
-          image: recipe.image_url,
-          prepTime: recipe.prep_time ? `${recipe.prep_time} min` : undefined,
-          servings: recipe.servings ? `${recipe.servings} servings` : undefined,
-          tags: []
-        }));
-        
-        setRecipes(formattedRecipes);
-        
-        // Extract all unique tags
-        const tags = new Set<string>();
-        formattedRecipes.forEach((recipe: any) => {
-          recipe.tags?.forEach((tag: string) => tags.add(tag));
-        });
-        setAllTags(Array.from(tags));
-      } catch (error) {
-        console.error('Error loading recipes:', error);
-      } finally {
-        setIsLoading(false);
+    setIsLoading(true);
+    try {
+      const { data: dbRecipes, error } = await database.recipes.getAll(user.id);
+      if (error) throw error;
+      
+      const formattedRecipes = (dbRecipes || []).map(recipe => ({
+        ...recipe,
+        image: recipe.image_url,
+        prepTime: recipe.prep_time ? `${recipe.prep_time} min` : undefined,
+        servings: recipe.servings ? `${recipe.servings} servings` : undefined,
+        tags: []
+      }));
+      
+      setRecipes(formattedRecipes);
+      
+      // Extract all unique tags
+      const tags = new Set<string>();
+      formattedRecipes.forEach((recipe: any) => {
+        recipe.tags?.forEach((tag: string) => tags.add(tag));
+      });
+      setAllTags(Array.from(tags));
+    } catch (error) {
+      console.error('Error loading recipes:', error);
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
+  useEffect(() => {
+    loadRecipes();
+  }, [user]);
+
+  // Refresh recipes when returning to this page
+  useEffect(() => {
+    const handleFocus = () => {
+      if (document.visibilityState === 'visible') {
+        loadRecipes();
       }
     };
-    
-    loadRecipes();
+
+    document.addEventListener('visibilitychange', handleFocus);
+    window.addEventListener('focus', handleFocus);
+
+    return () => {
+      document.removeEventListener('visibilitychange', handleFocus);
+      window.removeEventListener('focus', handleFocus);
+    };
   }, [user]);
 
   useEffect(() => {

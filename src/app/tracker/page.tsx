@@ -64,14 +64,20 @@ export default function TrackerPage() {
         const { data: priceData, error } = await database.priceTracker.getAll(user.id);
         if (error) throw error;
         
-        const formattedData = (priceData || []).map(item => ({
-          id: item.id,
-          name: item.name,
-          stores: item.stores || [],
-          target_price: item.target_price,
-          unit: item.unit,
-          emoji: item.emoji || '🛒'
-        }));
+        const formattedData = (priceData || []).map(item => {
+          // Debug: Log stores data to check receipt_image
+          if (item.stores && item.stores.length > 0) {
+            console.log(`Price tracker item ${item.name} stores:`, item.stores);
+          }
+          return {
+            id: item.id,
+            name: item.name,
+            stores: item.stores || [],
+            target_price: item.target_price,
+            unit: item.unit,
+            emoji: item.emoji || '🛒'
+          };
+        });
         
         setPriceHistory(formattedData);
         
@@ -437,9 +443,9 @@ export default function TrackerPage() {
 
                       {/* Actions */}
                       {!isEditMode && (
-                        <div className="flex items-center gap-1 sm:ml-4 mt-2 sm:mt-0">
+                        <div className="flex flex-col items-center gap-1 sm:ml-4 mt-2 sm:mt-0">
                           {/* View Receipt Button - Check if any store has a receipt image */}
-                          {item.stores.some(store => store.receipt_image) && (
+                          {item.stores && item.stores.length > 0 && item.stores.some(store => store.receipt_image) && (
                             <Button
                               variant="ghost"
                               size="sm"
@@ -453,6 +459,7 @@ export default function TrackerPage() {
                                 }
                               }}
                               className="h-8 w-8 p-0"
+                              title="View Receipt"
                             >
                               <Eye className="w-4 h-4" />
                             </Button>
@@ -462,6 +469,7 @@ export default function TrackerPage() {
                             size="sm"
                             onClick={() => setEditingItem(item)}
                             className="h-8 w-8 p-0"
+                            title="Edit Item"
                           >
                             <Edit className="w-4 h-4" />
                           </Button>

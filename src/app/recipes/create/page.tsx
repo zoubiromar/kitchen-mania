@@ -11,6 +11,10 @@ import { Textarea } from '@/components/ui/textarea';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { ArrowLeft, Upload, Sparkles, Plus, Minus } from 'lucide-react';
+import { useAuth } from '@/components/AuthContext';
+import { database } from '@/lib/database';
+import { ProtectedRoute } from '@/components/AuthContext';
+import { Toast, useToast } from '@/components/toast';
 
 interface RecipeIngredient {
   name: string;
@@ -35,6 +39,8 @@ interface Recipe {
 
 export default function CreateRecipePage() {
   const router = useRouter();
+  const { user } = useAuth();
+  const { toast, showToast, hideToast } = useToast();
   const [recipe, setRecipe] = useState({
     title: '',
     description: '',
@@ -46,6 +52,7 @@ export default function CreateRecipePage() {
   });
   const [isGeneratingImage, setIsGeneratingImage] = useState(false);
   const [imageFile, setImageFile] = useState<File | null>(null);
+  const [isSaving, setIsSaving] = useState(false);
 
   const addIngredient = () => {
     setRecipe(prev => ({
@@ -92,23 +99,29 @@ export default function CreateRecipePage() {
   };
 
   const generateImage = async () => {
+    if (!recipe.title || recipe.ingredients.filter(ing => ing.name).length === 0) {
+      showToast('Please add a title and at least one ingredient first', 'error');
+      return;
+    }
+
     setIsGeneratingImage(true);
     try {
       const response = await fetch('/api/recipes/generate-image', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ 
+        body: JSON.stringify({
           title: recipe.title,
-          ingredients: recipe.ingredients.filter(ing => ing.name.trim()).slice(0, 5).map(ing => ing.name)
+          ingredients: recipe.ingredients.filter(ing => ing.name).slice(0, 5).map(ing => ing.name)
         }),
       });
-      
+
       const data = await response.json();
       if (data.imageUrl) {
         setRecipe(prev => ({ ...prev, image: data.imageUrl }));
       }
     } catch (error) {
       console.error('Error generating image:', error);
+      showToast('Failed to generate image', 'error');
     } finally {
       setIsGeneratingImage(false);
     }
@@ -117,292 +130,359 @@ export default function CreateRecipePage() {
   const handleImageUpload = (event: React.ChangeEvent<HTMLInputElement>) => {
     const file = event.target.files?.[0];
     if (file) {
-      setImageFile(file);
       const reader = new FileReader();
       reader.onload = (e) => {
         setRecipe(prev => ({ ...prev, image: e.target?.result as string }));
       };
       reader.readAsDataURL(file);
+      setImageFile(file);
     }
   };
 
-  const saveRecipe = () => {
+  const saveRecipe = async () => {
     if (!recipe.title.trim()) {
-      alert('Please enter a recipe title');
+      showToast('Please enter a recipe title', 'error');
       return;
     }
 
-    const newRecipe: Recipe = {
-      id: Date.now().toString(),
-      title: recipe.title,
-      description: recipe.description,
-      ingredients: recipe.ingredients.filter(ing => ing.name.trim()),
-      instructions: recipe.instructions.filter(inst => inst.trim()),
-      servings: recipe.servings,
-      prepTime: recipe.prepTime,
-      image: recipe.image || `/api/placeholder/400/300?text=${encodeURIComponent(recipe.title)}`,
-      rating: 0,
-      tags: [],
-      createdAt: new Date().toISOString(),
-      usageFromPantry: []
-    };
+    if (!user) {
+      showToast('Please log in to save recipes', 'error');
+      return;
+    }
 
-    // Save to localStorage
-    const existingRecipes = JSON.parse(localStorage.getItem('savedRecipes') || '[]');
-    existingRecipes.push(newRecipe);
-    localStorage.setItem('savedRecipes', JSON.stringify(existingRecipes));
+    setIsSaving(true);
+    try {
+      // Filter out empty ingredients and instructions
+      const validIngredients = recipe.ingredients.filter(ing => ing.name.trim());
+      const validInstructions = recipe.instructions.filter(inst => inst.trim());
 
-    // Redirect to the new recipe page
-    router.push(`/recipes/${newRecipe.id}`);
+      if (validIngredients.length === 0) {
+        showToast('Please add at least one ingredient', 'error');
+        setIsSaving(false);
+        return;
+      }
+
+      if (validInstructions.length === 0) {
+        showToast('Please add at least one instruction', 'error');
+        setIsSaving(false);
+        return;
+      }
+
+      // Generate image if none exists
+      let imageUrl = recipe.image;
+      if (!imageUrl) {
+        try {
+          const imageResponse = await fetch('/api/recipes/generate-image', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+              title: recipe.title,
+              ingredients: validIngredients.slice(0, 5).map(ing => ing.name)
+            }),
+          });
+          const imageData = await imageResponse.json();
+          imageUrl = imageData.imageUrl || `/api/placeholder/400/300?text=${encodeURIComponent(recipe.title)}`;
+        } catch (error) {
+          console.error('Error generating image:', error);
+          imageUrl = `/api/placeholder/400/300?text=${encodeURIComponent(recipe.title)}`;
+        }
+      }
+
+      const recipeData = {
+        title: recipe.title,
+        description: recipe.description || null,
+        ingredients: validIngredients,
+        instructions: validInstructions,
+        servings: parseInt(recipe.servings),
+        prep_time: recipe.prepTime ? parseInt(recipe.prepTime) : null,
+        cook_time: null,
+        difficulty: 'Medium' as const,
+        rating: 0,
+        image_url: imageUrl,
+        unit_system: 'metric' as const
+      };
+
+      const { data, error } = await database.recipes.add(user.id, recipeData);
+      
+      if (error) throw error;
+      
+      if (data) {
+        showToast('Recipe saved successfully!', 'success');
+        router.push(`/recipes/${data.id}`);
+      }
+    } catch (error) {
+      console.error('Error saving recipe:', error);
+      showToast('Failed to save recipe. Please try again.', 'error');
+    } finally {
+      setIsSaving(false);
+    }
   };
 
   return (
-    <div className="min-h-screen bg-gray-50">
-      {/* Header */}
-      <div className="bg-white border-b">
-        <div className="container mx-auto px-4 py-4">
-          <div className="flex items-center gap-4">
-            <Link href="/recipes">
-              <Button variant="outline" size="sm">
-                <ArrowLeft className="w-4 h-4 mr-2" />
-                Back to Recipes
-              </Button>
-            </Link>
-            <h1 className="text-2xl font-bold">Create New Recipe</h1>
+    <ProtectedRoute>
+      <div className="min-h-screen bg-gray-50">
+        {toast && (
+          <Toast
+            message={toast.message}
+            type={toast.type}
+            onClose={hideToast}
+          />
+        )}
+        
+        {/* Header */}
+        <div className="bg-white border-b">
+          <div className="container mx-auto px-4 py-4">
+            <div className="flex items-center gap-4">
+              <Link href="/recipes">
+                <Button variant="outline" size="sm">
+                  <ArrowLeft className="w-4 h-4 mr-2" />
+                  Back to Recipes
+                </Button>
+              </Link>
+              <h1 className="text-2xl font-bold">Create New Recipe</h1>
+            </div>
           </div>
         </div>
-      </div>
 
-      <div className="container mx-auto px-4 py-8">
-        <div className="max-w-4xl mx-auto">
-          <div className="grid gap-8 md:grid-cols-2">
-            {/* Left Column - Recipe Details */}
-            <div className="space-y-6">
-              {/* Basic Info */}
-              <Card>
-                <CardHeader>
-                  <CardTitle>Recipe Information</CardTitle>
-                </CardHeader>
-                <CardContent className="space-y-4">
-                  <div>
-                    <Label htmlFor="title">Recipe Title*</Label>
-                    <Input
-                      id="title"
-                      value={recipe.title}
-                                             onChange={(e: React.ChangeEvent<HTMLInputElement>) => setRecipe(prev => ({...prev, title: e.target.value}))}
-                      placeholder="Enter recipe title"
-                    />
-                  </div>
-                  
-                  <div>
-                    <Label htmlFor="description">Description</Label>
-                    <Textarea
-                      id="description"
-                      value={recipe.description}
-                                             onChange={(e: React.ChangeEvent<HTMLTextAreaElement>) => setRecipe(prev => ({...prev, description: e.target.value}))}
-                      placeholder="Brief description of your recipe"
-                      rows={3}
-                    />
-                  </div>
-
-                  <div className="grid grid-cols-2 gap-4">
+        <div className="container mx-auto px-4 py-8">
+          <div className="max-w-4xl mx-auto">
+            <div className="grid gap-8 md:grid-cols-2">
+              {/* Left Column - Recipe Details */}
+              <div className="space-y-6">
+                {/* Basic Info */}
+                <Card>
+                  <CardHeader>
+                    <CardTitle>Basic Information</CardTitle>
+                  </CardHeader>
+                  <CardContent className="space-y-4">
                     <div>
-                      <Label htmlFor="servings">Servings</Label>
+                      <Label htmlFor="title">Recipe Title *</Label>
                       <Input
-                        id="servings"
-                        value={recipe.servings}
-                        onChange={(e) => setRecipe(prev => ({...prev, servings: e.target.value}))}
-                        placeholder="4"
+                        id="title"
+                        value={recipe.title}
+                        onChange={(e) => setRecipe(prev => ({ ...prev, title: e.target.value }))}
+                        placeholder="Enter recipe name"
                       />
                     </div>
+                    
                     <div>
-                      <Label htmlFor="prepTime">Prep Time</Label>
-                      <Input
-                        id="prepTime"
-                        value={recipe.prepTime}
-                        onChange={(e) => setRecipe(prev => ({...prev, prepTime: e.target.value}))}
-                        placeholder="30 minutes"
-                      />
-                    </div>
-                  </div>
-                </CardContent>
-              </Card>
-
-              {/* Ingredients */}
-              <Card>
-                <CardHeader>
-                  <CardTitle>Ingredients</CardTitle>
-                </CardHeader>
-                <CardContent className="space-y-3">
-                  <div className="grid grid-cols-12 gap-2 text-xs font-semibold">
-                    <div className="col-span-6">Name</div>
-                    <div className="col-span-2 text-center">Qty</div>
-                    <div className="col-span-3 text-center">Unit</div>
-                    <div className="col-span-1"></div>
-                  </div>
-                  {recipe.ingredients.map((ingredient, index) => (
-                    <div key={index} className="grid grid-cols-12 gap-2">
-                      <Input
-                        className="col-span-6"
-                        value={ingredient.name}
-                        onChange={(e) => updateIngredient(index, 'name', e.target.value)}
-                        placeholder={`Ingredient ${index + 1}`}
-                      />
-                      <Input
-                        className="col-span-2"
-                        type="number"
-                        value={ingredient.quantity}
-                        onChange={(e) => updateIngredient(index, 'quantity', parseFloat(e.target.value) || 0)}
-                      />
-                      <Select
-                        value={ingredient.unit}
-                        onValueChange={(value) => updateIngredient(index, 'unit', value)}
-                      >
-                        <SelectTrigger className="col-span-3">
-                          <SelectValue />
-                        </SelectTrigger>
-                        <SelectContent>
-                          {['pcs', 'cups', 'tbsp', 'tsp', 'lbs', 'kg', 'g', 'oz', 'ml', 'l'].map(unit => (
-                            <SelectItem key={unit} value={unit}>
-                              {unit}
-                            </SelectItem>
-                          ))}
-                        </SelectContent>
-                      </Select>
-                      {recipe.ingredients.length > 1 && (
-                        <Button
-                          className="col-span-1"
-                          type="button"
-                          variant="outline"
-                          size="sm"
-                          onClick={() => removeIngredient(index)}
-                        >
-                          <Minus className="w-4 h-4" />
-                        </Button>
-                      )}
-                    </div>
-                  ))}
-                  <Button
-                    type="button"
-                    variant="outline"
-                    onClick={addIngredient}
-                    className="w-full"
-                  >
-                    <Plus className="w-4 h-4 mr-2" />
-                    Add Ingredient
-                  </Button>
-                </CardContent>
-              </Card>
-
-              {/* Instructions */}
-              <Card>
-                <CardHeader>
-                  <CardTitle>Instructions</CardTitle>
-                </CardHeader>
-                <CardContent className="space-y-3">
-                  {recipe.instructions.map((instruction, index) => (
-                    <div key={index} className="flex gap-2">
-                      <div className="flex-shrink-0 w-6 h-6 bg-blue-600 text-white text-xs rounded-full flex items-center justify-center mt-3">
-                        {index + 1}
-                      </div>
+                      <Label htmlFor="description">Description</Label>
                       <Textarea
-                        value={instruction}
-                        onChange={(e) => updateInstruction(index, e.target.value)}
-                        placeholder={`Step ${index + 1}`}
-                        className="flex-1"
-                        rows={2}
+                        id="description"
+                        value={recipe.description}
+                        onChange={(e) => setRecipe(prev => ({ ...prev, description: e.target.value }))}
+                        placeholder="Brief description of your recipe"
+                        rows={3}
                       />
-                      {recipe.instructions.length > 1 && (
+                    </div>
+                    
+                    <div className="grid grid-cols-2 gap-4">
+                      <div>
+                        <Label htmlFor="servings">Servings</Label>
+                        <Input
+                          id="servings"
+                          type="number"
+                          min="1"
+                          value={recipe.servings}
+                          onChange={(e) => setRecipe(prev => ({ ...prev, servings: e.target.value }))}
+                        />
+                      </div>
+                      <div>
+                        <Label htmlFor="prepTime">Prep Time (minutes)</Label>
+                        <Input
+                          id="prepTime"
+                          type="number"
+                          min="0"
+                          value={recipe.prepTime}
+                          onChange={(e) => setRecipe(prev => ({ ...prev, prepTime: e.target.value }))}
+                          placeholder="30"
+                        />
+                      </div>
+                    </div>
+                  </CardContent>
+                </Card>
+
+                {/* Image */}
+                <Card>
+                  <CardHeader>
+                    <CardTitle>Recipe Image</CardTitle>
+                  </CardHeader>
+                  <CardContent>
+                    {recipe.image ? (
+                      <div className="space-y-4">
+                        <div className="aspect-[4/3] relative overflow-hidden rounded-lg">
+                          <Image
+                            src={recipe.image}
+                            alt="Recipe preview"
+                            fill
+                            className="object-cover"
+                          />
+                        </div>
                         <Button
-                          type="button"
                           variant="outline"
-                          size="sm"
-                          onClick={() => removeInstruction(index)}
-                          className="mt-3"
+                          onClick={() => setRecipe(prev => ({ ...prev, image: '' }))}
+                          className="w-full"
                         >
-                          <Minus className="w-4 h-4" />
+                          Remove Image
                         </Button>
-                      )}
+                      </div>
+                    ) : (
+                      <div className="space-y-3">
+                        <div className="border-2 border-dashed border-gray-300 rounded-lg p-8 text-center">
+                          <Upload className="w-12 h-12 mx-auto mb-3 text-gray-400" />
+                          <p className="text-sm text-gray-500 mb-3">
+                            Upload an image or generate one with AI
+                          </p>
+                          <Input
+                            type="file"
+                            accept="image/*"
+                            onChange={handleImageUpload}
+                            className="mb-3"
+                          />
+                          <p className="text-xs text-gray-500 mb-3">or</p>
+                          <Button
+                            onClick={generateImage}
+                            disabled={isGeneratingImage || !recipe.title}
+                            variant="outline"
+                            className="w-full"
+                          >
+                            <Sparkles className="w-4 h-4 mr-2" />
+                            {isGeneratingImage ? 'Generating...' : 'Generate with AI'}
+                          </Button>
+                        </div>
+                      </div>
+                    )}
+                  </CardContent>
+                </Card>
+              </div>
+
+              {/* Right Column - Ingredients & Instructions */}
+              <div className="space-y-6">
+                {/* Ingredients */}
+                <Card>
+                  <CardHeader>
+                    <CardTitle>Ingredients</CardTitle>
+                  </CardHeader>
+                  <CardContent>
+                    <div className="space-y-3">
+                      {recipe.ingredients.map((ingredient, index) => (
+                        <div key={index} className="grid grid-cols-12 gap-2">
+                          <Input
+                            className="col-span-6"
+                            value={ingredient.name}
+                            onChange={(e) => updateIngredient(index, 'name', e.target.value)}
+                            placeholder="Ingredient name"
+                          />
+                          <Input
+                            className="col-span-2"
+                            type="number"
+                            step="0.1"
+                            min="0"
+                            value={ingredient.quantity}
+                            onChange={(e) => updateIngredient(index, 'quantity', parseFloat(e.target.value) || 0)}
+                          />
+                          <Select
+                            value={ingredient.unit}
+                            onValueChange={(value) => updateIngredient(index, 'unit', value)}
+                          >
+                            <SelectTrigger className="col-span-3">
+                              <SelectValue />
+                            </SelectTrigger>
+                            <SelectContent>
+                              {['pcs', 'cups', 'tbsp', 'tsp', 'lbs', 'kg', 'g', 'oz', 'ml', 'l'].map(unit => (
+                                <SelectItem key={unit} value={unit}>
+                                  {unit}
+                                </SelectItem>
+                              ))}
+                            </SelectContent>
+                          </Select>
+                          {recipe.ingredients.length > 1 && (
+                            <Button
+                              variant="outline"
+                              size="icon"
+                              className="col-span-1"
+                              onClick={() => removeIngredient(index)}
+                            >
+                              <Minus className="w-4 h-4" />
+                            </Button>
+                          )}
+                        </div>
+                      ))}
+                      <Button
+                        variant="outline"
+                        onClick={addIngredient}
+                        className="w-full"
+                      >
+                        <Plus className="w-4 h-4 mr-2" />
+                        Add Ingredient
+                      </Button>
                     </div>
-                  ))}
-                  <Button
-                    type="button"
-                    variant="outline"
-                    onClick={addInstruction}
-                    className="w-full"
-                  >
-                    <Plus className="w-4 h-4 mr-2" />
-                    Add Instruction
-                  </Button>
-                </CardContent>
-              </Card>
-            </div>
+                  </CardContent>
+                </Card>
 
-            {/* Right Column - Image */}
-            <div className="space-y-6">
-              <Card>
-                <CardHeader>
-                  <CardTitle>Recipe Image</CardTitle>
-                </CardHeader>
-                <CardContent className="space-y-4">
-                  {recipe.image && (
-                    <div className="aspect-[4/3] relative overflow-hidden rounded-lg">
-                      <Image
-                        src={recipe.image}
-                        alt="Recipe preview"
-                        fill
-                        className="object-cover"
-                      />
+                {/* Instructions */}
+                <Card>
+                  <CardHeader>
+                    <CardTitle>Instructions</CardTitle>
+                  </CardHeader>
+                  <CardContent>
+                    <div className="space-y-3">
+                      {recipe.instructions.map((instruction, index) => (
+                        <div key={index} className="flex gap-2">
+                          <div className="flex-shrink-0 w-6 h-6 bg-blue-600 text-white text-xs rounded-full flex items-center justify-center">
+                            {index + 1}
+                          </div>
+                          <Textarea
+                            value={instruction}
+                            onChange={(e) => updateInstruction(index, e.target.value)}
+                            placeholder={`Step ${index + 1}`}
+                            rows={2}
+                            className="flex-1"
+                          />
+                          {recipe.instructions.length > 1 && (
+                            <Button
+                              variant="outline"
+                              size="icon"
+                              onClick={() => removeInstruction(index)}
+                            >
+                              <Minus className="w-4 h-4" />
+                            </Button>
+                          )}
+                        </div>
+                      ))}
+                      <Button
+                        variant="outline"
+                        onClick={addInstruction}
+                        className="w-full"
+                      >
+                        <Plus className="w-4 h-4 mr-2" />
+                        Add Step
+                      </Button>
                     </div>
-                  )}
-                  
-                  <div className="space-y-2">
-                    <Label htmlFor="image-upload">Upload Image</Label>
-                    <Input
-                      id="image-upload"
-                      type="file"
-                      accept="image/*"
-                      onChange={handleImageUpload}
-                    />
-                  </div>
+                  </CardContent>
+                </Card>
 
-                  <div className="text-center">
-                    <span className="text-sm text-gray-500">or</span>
-                  </div>
-
-                  <Button
-                    onClick={generateImage}
-                    disabled={isGeneratingImage || !recipe.title.trim()}
-                    variant="outline"
-                    className="w-full"
+                {/* Actions */}
+                <div className="space-y-3">
+                  <Button 
+                    onClick={saveRecipe} 
+                    className="w-full" 
+                    size="lg"
+                    disabled={isSaving}
                   >
-                    <Sparkles className="w-4 h-4 mr-2" />
-                    {isGeneratingImage ? 'Generating...' : 'Generate AI Image'}
+                    {isSaving ? 'Saving...' : 'Create Recipe'}
                   </Button>
-                  
-                  {!recipe.title.trim() && (
-                    <p className="text-xs text-gray-500 text-center">
-                      Enter a title to generate an AI image
-                    </p>
-                  )}
-                </CardContent>
-              </Card>
-
-              {/* Action Buttons */}
-              <div className="space-y-3">
-                <Button onClick={saveRecipe} className="w-full" size="lg">
-                  Create Recipe
-                </Button>
-                <Link href="/recipes">
-                  <Button variant="outline" className="w-full">
-                    Cancel
-                  </Button>
-                </Link>
+                  <Link href="/recipes">
+                    <Button variant="outline" className="w-full">
+                      Cancel
+                    </Button>
+                  </Link>
+                </div>
               </div>
             </div>
           </div>
         </div>
       </div>
-    </div>
+    </ProtectedRoute>
   );
 } 
