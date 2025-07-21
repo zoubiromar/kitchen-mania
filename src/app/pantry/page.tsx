@@ -437,23 +437,50 @@ export default function PantryPage() {
         
         // Save price tracking data to database
         if (user && priceData.length > 0) {
-          priceData.forEach(async (item) => {
+          for (const item of priceData) {
             try {
-              await database.priceTracker.add(user.id, {
-                name: item.name,
-                price_per_unit: item.pricePerUnit || 0,
-                total_price: item.totalPrice || 0,
-                quantity: item.quantity,
-                unit: item.unit,
-                merchant: item.merchant,
-                date: item.date,
-                receipt_image: undefined,
-                emoji: item.emoji || undefined
-              });
+              // Check if item already exists in price tracker
+              const { data: existingItems } = await database.priceTracker.getAll(user.id);
+              const existingItem = existingItems?.find(existing => existing.name.toLowerCase() === item.name.toLowerCase());
+              
+              if (existingItem) {
+                // Add new store price to existing item
+                const currentStores = existingItem.stores || [];
+                const newStoreEntry = {
+                  store: item.merchant,
+                  price: item.pricePerUnit || 0,
+                  total_price: item.totalPrice || 0,
+                  quantity: item.quantity,
+                  date: item.date
+                };
+                
+                // Avoid duplicates from same store on same date
+                const updatedStores = currentStores.filter((store: any) => 
+                  !(store.store === item.merchant && store.date === item.date)
+                );
+                updatedStores.push(newStoreEntry);
+                
+                await database.priceTracker.updateStorePrices(existingItem.id, user.id, updatedStores);
+              } else {
+                // Create new price tracking item
+                await database.priceTracker.add(user.id, {
+                  name: item.name,
+                  stores: [{
+                    store: item.merchant,
+                    price: item.pricePerUnit || 0,
+                    total_price: item.totalPrice || 0,
+                    quantity: item.quantity,
+                    date: item.date
+                  }],
+                  target_price: null,
+                  unit: item.unit,
+                  emoji: item.emoji || '🛒'
+                });
+              }
             } catch (error) {
               console.error('Error saving price data:', error);
             }
-          });
+          }
         }
         
         // Generate emojis for new items
