@@ -1077,9 +1077,9 @@ export default function PantryPage() {
     <ProtectedRoute>
       <div className="container mx-auto px-4 py-8">
       <div className="mb-8">
-        <div className="flex justify-between items-center mb-2">
+        <div className="flex flex-col sm:flex-row sm:justify-between sm:items-center gap-4 mb-2">
           <h1 className="text-3xl font-bold">My Pantry</h1>
-          <div className="flex gap-2">
+          <div className="flex gap-2 flex-wrap">
             {/* Recipe Dropdown */}
             <DropdownMenu>
               <DropdownMenuTrigger asChild>
@@ -1169,22 +1169,14 @@ export default function PantryPage() {
                   <Camera className="w-4 h-4 mr-2" />
                   Add via Receipt
                 </DropdownMenuItem>
+                <DropdownMenuItem onClick={() => setIsBulkEditMode(!isBulkEditMode)}>
+                  <Pencil className="w-4 h-4 mr-2" />
+                  {isBulkEditMode ? 'Done Editing' : 'Bulk Item Edit'}
+                </DropdownMenuItem>
               </DropdownMenuContent>
             </DropdownMenu>
-
-            {/* Bulk Edit Button */}
-            <Button
-              variant={isBulkEditMode ? "destructive" : "outline"}
-              onClick={() => setIsBulkEditMode(!isBulkEditMode)}
-              size="sm"
-            >
-              {isBulkEditMode ? 'Done Editing' : 'Bulk Item Edit'}
-            </Button>
           </div>
         </div>
-        <p className="text-sm text-gray-600 mt-1">
-          Tip: Check items to require in recipes
-        </p>
       </div>
       
       {/* Dialog for single item add */}
@@ -1987,6 +1979,15 @@ export default function PantryPage() {
             <p className="text-sm text-gray-400">Add some items to get started!</p>
           </CardContent>
         </Card>
+      )}
+
+      {/* Tip section */}
+      {pantryItems.length > 0 && (
+        <div className="mt-6 mb-6 text-center">
+          <p className="text-sm text-gray-600">
+            Tip: Check items to require in recipes
+          </p>
+        </div>
       )}
 
       {savedRecipes.length > 0 && (
