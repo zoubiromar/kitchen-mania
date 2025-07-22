@@ -295,6 +295,27 @@ export default function PantryPage() {
     }
   };
 
+  const removeCategory = async (category: string) => {
+    if (!user) return;
+    
+    const itemsToRemove = pantryItems.filter(item => item.category === category);
+    if (itemsToRemove.length === 0) return;
+    
+    try {
+      // Remove all items in the category
+      for (const item of itemsToRemove) {
+        const { error } = await database.pantry.delete(item.id, user.id);
+        if (error) throw error;
+      }
+      
+      setPantryItems(pantryItems.filter(item => item.category !== category));
+      showToast(`Removed ${itemsToRemove.length} items from ${category}`, 'success');
+    } catch (error) {
+      console.error('Error removing category:', error);
+      showToast('Failed to remove category', 'error');
+    }
+  };
+
   const updateItem = async (id: string, updates: Partial<PantryItem>) => {
     if (!user) return;
     
@@ -1793,8 +1814,25 @@ export default function PantryPage() {
                   className={isBulkEditMode ? "cursor-pointer hover:bg-gray-50 rounded p-2 -m-2" : ""}
                   onClick={() => isBulkEditMode && setEditingCategoryName(category)}
                 >
-                  <CardTitle>{categoryNames[category] || category}</CardTitle>
-                  <CardDescription>{items.length} items</CardDescription>
+                  <div className="flex items-center justify-between">
+                    <div className="flex items-center gap-2">
+                      {isBulkEditMode && (
+                        <Button
+                          variant="ghost"
+                          size="sm"
+                          className="w-6 h-6 p-0 bg-red-100/80 hover:bg-red-200 rounded-full"
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            removeCategory(category);
+                          }}
+                        >
+                          <Minus className="w-3 h-3 text-red-600" />
+                        </Button>
+                      )}
+                      <CardTitle className="text-xl">{categoryNames[category] || category}</CardTitle>
+                    </div>
+                    <span className="text-sm text-gray-500">{items.length} items</span>
+                  </div>
                 </div>
               )}
             </CardHeader>
@@ -1832,9 +1870,7 @@ export default function PantryPage() {
                           className="w-6 h-6 p-0 bg-red-100/80 hover:bg-red-200 rounded-full"
                           onClick={(e) => {
                             e.stopPropagation();
-                            if (confirm(`Delete ${item.name}?`)) {
-                              removeItem(item.id);
-                            }
+                            removeItem(item.id);
                           }}
                         >
                           <Minus className="w-3 h-3 text-red-600" />
