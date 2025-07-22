@@ -80,7 +80,7 @@ export default function TrackerPage() {
             // Create a separate entry for each store price
             item.stores.forEach((store: any) => {
               formattedData.push({
-                id: `${item.id}-${store.store}-${store.date}`,
+                id: `${item.id}__${store.store}__${store.date}`, // Use double underscore as separator
                 name: item.name,
                 store: store.store,
                 price: store.price,
@@ -155,7 +155,10 @@ export default function TrackerPage() {
     if (!user) return;
     
     try {
-      const { error } = await database.priceTracker.delete(itemId, user.id);
+      // Extract the original ID from the composite ID (format: UUID__store__date)
+      const originalId = itemId.split('__')[0]; // Split by double underscore
+      
+      const { error } = await database.priceTracker.delete(originalId, user.id);
       if (error) throw error;
       
       const newHistory = priceHistory.filter(item => item.id !== itemId);
@@ -207,8 +210,10 @@ export default function TrackerPage() {
     if (!user) return;
     
     try {
-      // Extract the original ID from the composite ID (format: originalId-store-date)
-      const originalId = id.split('-')[0];
+      // Extract the original ID from the composite ID (format: UUID__store__date)
+      const originalId = id.split('__')[0]; // Split by double underscore
+      
+      console.log('Deleting item:', { compositeId: id, extractedId: originalId });
       
       const { error } = await database.priceTracker.delete(originalId, user.id);
       if (error) throw error;
@@ -218,7 +223,7 @@ export default function TrackerPage() {
       showToast('Item deleted successfully', 'success');
     } catch (error) {
       console.error('Error deleting price entry:', error);
-      showToast('Failed to delete item', 'error');
+      showToast('Failed to delete item. Check console for details.', 'error');
     }
   };
 
@@ -683,7 +688,7 @@ export default function TrackerPage() {
                             // Create a separate entry for each store price
                             item.stores.forEach((store: any) => {
                               formattedData.push({
-                                id: `${item.id}-${store.store}-${store.date}`,
+                                id: `${item.id}__${store.store}__${store.date}`, // Use double underscore as separator
                                 name: item.name,
                                 store: store.store,
                                 price: store.price,

@@ -233,11 +233,18 @@ export default function AccountPage() {
       const fileName = `${user.id}-${Date.now()}.${fileExt}`
       const filePath = fileName // Remove 'avatars/' prefix since we're already uploading to 'avatars' bucket
       
+      console.log('Uploading avatar:', { bucket: 'avatars', filePath, fileName });
+      
       const { error: uploadError } = await supabase.storage
         .from('avatars')
-        .upload(filePath, file)
+        .upload(filePath, file, {
+          upsert: true // Allow overwriting existing files
+        })
       
-      if (uploadError) throw uploadError
+      if (uploadError) {
+        console.error('Upload error details:', uploadError);
+        throw uploadError
+      }
       
       // Get public URL
       const { data } = supabase.storage
@@ -258,8 +265,11 @@ export default function AccountPage() {
       setAvatarUrl(data.publicUrl)
       showMessage('success', 'Avatar uploaded successfully!')
     } catch (error: any) {
-      if (error.message && error.message.includes('row-level security') || error.message.includes('violates row-level security policy')) {
+      console.error('Avatar upload error:', error);
+      if (error.message && (error.message.includes('row-level security') || error.message.includes('violates row-level security policy'))) {
         showMessage('error', 'Avatar upload requires storage permissions. Please contact support or check Supabase Storage policies for the avatars bucket.')
+      } else if (error.statusCode === 400) {
+        showMessage('error', 'Invalid file or upload failed. Please ensure the file is an image and try again. If the issue persists, check that your Supabase storage bucket "avatars" exists and has proper policies.')
       } else {
         showMessage('error', error.message || 'Failed to upload avatar')
       }
