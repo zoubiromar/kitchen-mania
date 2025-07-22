@@ -1480,9 +1480,6 @@ export default function PantryPage() {
                               {store}
                             </SelectItem>
                           ))}
-                          <SelectItem value="">
-                            <span className="text-gray-500">Clear selection</span>
-                          </SelectItem>
                         </SelectContent>
                       </Select>
                       <Input
