@@ -423,6 +423,7 @@ export const exampleQueries = {
       rating: 5,
       image_url: null,
       unit_system: 'metric' as const,
+      tags: []
     }
 
     const result = await database.recipes.add(userId, sampleRecipe)
