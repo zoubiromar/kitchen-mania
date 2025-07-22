@@ -241,3 +241,86 @@ REMEMBER: Extract EVERY item visible on the receipt. If you see 10 items, return
     );
   }
 } 
+
+// New endpoint for matching extracted items with pantry
+export async function PUT(request: NextRequest) {
+  try {
+    const { extractedItems, existingItems } = await request.json();
+    
+    if (!extractedItems || !Array.isArray(extractedItems)) {
+      return NextResponse.json(
+        { error: 'Invalid request: extractedItems array required' },
+        { status: 400 }
+      );
+    }
+    
+    const matchedItems = extractedItems.map((extracted: any) => {
+      // Find close matches in existing items
+      const normalizedName = extracted.name.toLowerCase().trim();
+      
+      // Look for exact match first
+      let match = existingItems?.find((existing: any) => 
+        existing.name.toLowerCase().trim() === normalizedName
+      );
+      
+      // If no exact match, look for partial matches
+      if (!match) {
+        match = existingItems?.find((existing: any) => {
+          const existingNorm = existing.name.toLowerCase().trim();
+          
+          // Check if one contains the other (but avoid false matches)
+          // e.g. "2% Milk" matches "Milk", but "Olive Oil" doesn't match "Vegetable Oil"
+          const blacklistPairs = [
+            ['olive', 'vegetable'],
+            ['coconut', 'vegetable'],
+            ['butter', 'margarine'],
+            ['cream', 'milk'],
+          ];
+          
+          // Check blacklist
+          for (const [word1, word2] of blacklistPairs) {
+            if ((normalizedName.includes(word1) && existingNorm.includes(word2)) ||
+                (normalizedName.includes(word2) && existingNorm.includes(word1))) {
+              return false;
+            }
+          }
+          
+          // Check for partial match
+          return (normalizedName.includes(existingNorm) || 
+                  existingNorm.includes(normalizedName)) &&
+                 Math.abs(normalizedName.length - existingNorm.length) < 10;
+        });
+      }
+      
+      if (match) {
+        // Use existing item's properties but keep new quantity and price
+        return {
+          ...extracted,
+          exists: true,
+          existingId: match.id,
+          name: match.name,
+          emoji: match.emoji,
+          category: match.category,
+          unit: match.unit,
+          // Keep the extracted quantity and price
+          quantity: extracted.quantity,
+          price: extracted.price,
+          totalPrice: extracted.totalPrice
+        };
+      }
+      
+      return {
+        ...extracted,
+        exists: false
+      };
+    });
+    
+    return NextResponse.json({ items: matchedItems });
+  } catch (error) {
+    console.error('Error matching items:', error);
+    return NextResponse.json(
+      { error: 'Failed to match items' },
+      { status: 500 }
+    );
+  }
+} 

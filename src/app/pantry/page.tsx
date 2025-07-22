@@ -147,6 +147,7 @@ export default function PantryPage() {
   const [isBulkEditMode, setIsBulkEditMode] = useState(false);
   const [editingCategoryName, setEditingCategoryName] = useState<string | null>(null);
   const [categoryNames, setCategoryNames] = useState<Record<string, string>>({});
+  const [tempReceiptData, setTempReceiptData] = useState<any>(null);
 
   // Get available units based on user preferences
   const getAvailableUnits = () => {
@@ -418,11 +419,12 @@ export default function PantryPage() {
   };
 
   const processReceiptImage = async (dataUrl: string) => {
-    setBulkImage(null);
+    // Don't clear the image immediately - keep the UI in processing state
     showToast('Processing receipt...', 'info');
     
     if (!dataUrl) {
       showToast('No image selected', 'error');
+      setBulkImage(null);
       return;
     }
     
@@ -430,174 +432,142 @@ export default function PantryPage() {
     const base64Image = dataUrl.includes(',') ? dataUrl.split(',')[1] : dataUrl;
     
     try {
-      const response = await fetch('/api/pantry/parse-receipt', {
+      // Step 1: Extract items from receipt
+      const extractResponse = await fetch('/api/pantry/parse-receipt', {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
         },
         body: JSON.stringify({ 
           imageBase64: base64Image,
-          existingItems: pantryItems.map(item => ({
-            name: item.name,
-            category: item.category
-          })),
           unitSystem: unitSystem
         }),
       });
       
-      if (!response.ok) {
-        const errorData = await response.json();
+      if (!extractResponse.ok) {
+        const errorData = await extractResponse.json();
         throw new Error(errorData.error || 'Failed to parse receipt');
       }
       
-      const data = await response.json();
+      const extractData = await extractResponse.json();
       
       // Check if it's not a receipt
-      if (data.isReceipt === false) {
-        showToast(data.error || 'Not a valid receipt image', 'error');
+      if (extractData.isReceipt === false) {
+        showToast(extractData.error || 'Not a valid receipt image', 'error');
         setBulkImage(null);
         return;
       }
       
-      if (data.items && data.items.length > 0) {
-        console.log(`Processing ${data.items.length} items from receipt`);
-        const parsedItems: PantryItem[] = [];
-        const updates: {item: PantryItem, addQuantity: number}[] = [];
-        const itemsForPriceTracking: any[] = [];
-        
-        data.items.forEach((parsedItem: any) => {
-          if (parsedItem.exists) {
-            const existingItem = pantryItems.find(item => 
-              item.name.toLowerCase() === parsedItem.name.toLowerCase()
-            );
-            
-            if (existingItem) {
-              updates.push({
-                item: existingItem,
-                addQuantity: parsedItem.quantity
-              });
-            }
-          } else {
-            const defaultEmoji = guessEmojiForItem(parsedItem.name) || '🛒';
-            const itemId = crypto.randomUUID();
-            parsedItems.push({
-              id: itemId,
-              name: parsedItem.name,
-              emoji: defaultEmoji,
-              quantity: parsedItem.quantity,
-              unit: parsedItem.unit,
-              category: parsedItem.category || 'Uncategorized',
-              purchaseDate: data.date || new Date().toISOString().split('T')[0],
-              expiryDate: parsedItem.expiryDate
-            });
-          }
-          
-          // Prepare data for price tracking
-          if (parsedItem.price) {
-            itemsForPriceTracking.push({
-              id: crypto.randomUUID(),
-              name: parsedItem.name,
-              quantity: parsedItem.quantity,
-              unit: parsedItem.unit,
-              price: parsedItem.price,
-              totalPrice: parsedItem.totalPrice || (parsedItem.price * parsedItem.quantity),
-              merchant: data.merchant || 'Unknown Store',
-              date: data.date || new Date().toISOString().split('T')[0],
-              emoji: guessEmojiForItem(parsedItem.name) || '🛒'
-            });
-          }
-        });
-        
-        // Save receipt data and price history
-        if (itemsForPriceTracking.length > 0 && user) {
-          const receiptId = crypto.randomUUID();
-          const receiptData = {
-            id: receiptId,
-            merchant: data.merchant || 'Unknown Store',
-            date: data.date || new Date().toISOString().split('T')[0],
-            total: data.total || 0,
-            itemCount: itemsForPriceTracking.length,
-            items: itemsForPriceTracking,
-            receiptImage: dataUrl // Store the full data URL
-          };
-          
-          // Save receipt to localStorage for now (until we implement receipt storage in DB)
-          saveReceiptData(receiptData);
-          
-          // Save each item to price tracker in database
-          for (const item of itemsForPriceTracking) {
-            try {
-              // Check if item already exists in price tracker
-              const { data: existingItems } = await database.priceTracker.getAll(user.id);
-              const existingItem = existingItems?.find(existing => 
-                existing.name.toLowerCase() === item.name.toLowerCase()
-              );
-              
-              if (existingItem) {
-                // Add new store price to existing item
-                const currentStores = existingItem.stores || [];
-                const newStoreEntry = {
-                  store: data.merchant || 'Unknown Store',
-                  price: item.price,
-                  total_price: item.totalPrice,
-                  quantity: item.quantity,
-                  date: data.date || new Date().toISOString().split('T')[0],
-                  receipt_image: dataUrl
-                };
-                
-                // Avoid duplicates from same store on same date
-                const updatedStores = currentStores.filter((store: any) => 
-                  !(store.store === newStoreEntry.store && store.date === newStoreEntry.date)
-                );
-                updatedStores.push(newStoreEntry);
-                
-                await database.priceTracker.updateStorePrices(existingItem.id, user.id, updatedStores);
-              } else {
-                // Create new price tracking item
-                await database.priceTracker.add(user.id, {
-                  name: item.name,
-                  stores: [{
-                    store: data.merchant || 'Unknown Store',
-                    price: item.price,
-                    total_price: item.totalPrice,
-                    quantity: item.quantity,
-                    date: data.date || new Date().toISOString().split('T')[0],
-                    receipt_image: dataUrl
-                  }],
-                  target_price: null,
-                  unit: item.unit,
-                  emoji: item.emoji || '🛒'
-                });
-              }
-            } catch (error) {
-              console.error('Error saving price data for item:', item.name, error);
-            }
-          }
-          
-          showToast(`Added ${itemsForPriceTracking.length} items to price tracker`, 'success');
+      if (!extractData.items || extractData.items.length === 0) {
+        showToast('No items found on receipt', 'error');
+        setBulkImage(null);
+        return;
+      }
+      
+      console.log(`Extracted ${extractData.items.length} items from receipt`);
+      
+      // Step 2: Match extracted items with existing pantry
+      const matchResponse = await fetch('/api/pantry/parse-receipt', {
+        method: 'PUT',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          extractedItems: extractData.items,
+          existingItems: pantryItems.map(item => ({
+            id: item.id,
+            name: item.name,
+            emoji: item.emoji,
+            category: item.category,
+            unit: item.unit
+          }))
+        }),
+      });
+      
+      if (!matchResponse.ok) {
+        throw new Error('Failed to match items');
+      }
+      
+      const matchData = await matchResponse.json();
+      const matchedItems = matchData.items || [];
+      
+      // Process matched items
+      const parsedItems: PantryItem[] = [];
+      const updates: {item: PantryItem, addQuantity: number}[] = [];
+      const itemsForPriceTracking: any[] = [];
+      
+      matchedItems.forEach((item: any) => {
+        // Prepare price tracking data
+        if (item.price !== undefined && item.price !== null) {
+          itemsForPriceTracking.push({
+            id: crypto.randomUUID(),
+            name: item.name,
+            quantity: item.quantity,
+            unit: item.unit,
+            price: item.price,
+            totalPrice: item.totalPrice || (item.price * item.quantity),
+            merchant: extractData.merchant || 'Unknown Store',
+            date: extractData.date || new Date().toISOString().split('T')[0],
+            emoji: item.emoji || guessEmojiForItem(item.name) || '🛒',
+            category: item.category
+          });
         }
         
-        setBulkItems({ new: parsedItems, existing: updates });
-        setShowBulkAdd(null);
-        
-        // Generate emojis in background
-        setTimeout(() => {
-          parsedItems.forEach(async (item) => {
-            try {
-              await generateEmojiForItem(item.name, item.id);
-            } catch (err) {
-              console.error('Failed to generate emoji for', item.name);
-            }
+        if (item.exists && item.existingId) {
+          // Update existing item
+          const existingItem = pantryItems.find(p => p.id === item.existingId);
+          if (existingItem) {
+            updates.push({
+              item: existingItem,
+              addQuantity: item.quantity
+            });
+          }
+        } else {
+          // Create new item
+          const itemId = crypto.randomUUID();
+          parsedItems.push({
+            id: itemId,
+            name: item.name,
+            emoji: item.emoji || guessEmojiForItem(item.name) || '🛒',
+            quantity: item.quantity,
+            unit: item.unit,
+            category: item.category || 'Uncategorized',
+            purchaseDate: extractData.date || new Date().toISOString().split('T')[0],
+            expiryDate: item.expiryDate
           });
-        }, 100);
-        
-        showToast(`Found ${parsedItems.length} new items and ${updates.length} updates`, 'success');
-      } else {
-        showToast('No items found on receipt', 'error');
-      }
+        }
+      });
+      
+      // Clear the image and show bulk items for confirmation
+      setBulkImage(null);
+      setBulkItems({ new: parsedItems, existing: updates });
+      setShowBulkAdd(null);
+      
+      // Store receipt data and merchant info temporarily
+      setTempReceiptData({
+        items: itemsForPriceTracking,
+        merchant: extractData.merchant || 'Unknown Store',
+        date: extractData.date || new Date().toISOString().split('T')[0],
+        total: extractData.total || 0,
+        receiptImage: dataUrl
+      });
+      
+      // Generate emojis in background for new items
+      setTimeout(() => {
+        parsedItems.forEach(async (item) => {
+          try {
+            await generateEmojiForItem(item.name, item.id);
+          } catch (err) {
+            console.error('Failed to generate emoji for', item.name);
+          }
+        });
+      }, 100);
+      
+      showToast(`Found ${parsedItems.length} new items and ${updates.length} updates`, 'success');
     } catch (error) {
       console.error('Error processing receipt:', error);
       showToast('Failed to process receipt. Please try again.', 'error');
+      setBulkImage(null);
     }
   };
 
@@ -683,6 +653,88 @@ export default function PantryPage() {
         }
       }
       
+      // Save price tracker data if we have receipt data
+      if (tempReceiptData && tempReceiptData.items.length > 0) {
+        const receiptId = crypto.randomUUID();
+        
+        // Save receipt to localStorage
+        saveReceiptData({
+          id: receiptId,
+          merchant: tempReceiptData.merchant,
+          date: tempReceiptData.date,
+          total: tempReceiptData.total,
+          itemCount: tempReceiptData.items.length,
+          items: tempReceiptData.items,
+          receiptImage: tempReceiptData.receiptImage
+        });
+        
+        // Save each item to price tracker
+        for (const priceItem of tempReceiptData.items) {
+          try {
+            // Check if this item was actually confirmed (not removed by user)
+            const wasConfirmed = bulkItems.new.some(i => 
+              i.name.toLowerCase() === priceItem.name.toLowerCase()
+            ) || bulkItems.existing.some(u => 
+              u.item.name.toLowerCase() === priceItem.name.toLowerCase()
+            );
+            
+            if (!wasConfirmed) continue;
+            
+            // Get existing price tracker items
+            const { data: existingPriceItems } = await database.priceTracker.getAll(user.id);
+            const existingPriceItem = existingPriceItems?.find(existing => 
+              existing.name.toLowerCase() === priceItem.name.toLowerCase()
+            );
+            
+            const newStoreEntry = {
+              store: tempReceiptData.merchant,
+              price: priceItem.price,
+              total_price: priceItem.totalPrice,
+              quantity: priceItem.quantity,
+              date: tempReceiptData.date,
+              receipt_image: tempReceiptData.receiptImage
+            };
+            
+            if (existingPriceItem && Array.isArray(existingPriceItem.stores)) {
+              // Update existing price tracker item
+              const updatedStores = [...existingPriceItem.stores];
+              
+              // Remove duplicate from same store on same date
+              const duplicateIndex = updatedStores.findIndex((store: any) => 
+                store.store === newStoreEntry.store && store.date === newStoreEntry.date
+              );
+              
+              if (duplicateIndex >= 0) {
+                updatedStores[duplicateIndex] = newStoreEntry;
+              } else {
+                updatedStores.push(newStoreEntry);
+              }
+              
+              await database.priceTracker.updateStorePrices(
+                existingPriceItem.id, 
+                user.id, 
+                updatedStores
+              );
+            } else {
+              // Create new price tracker item
+              await database.priceTracker.add(user.id, {
+                name: priceItem.name,
+                stores: [newStoreEntry],
+                target_price: null,
+                unit: priceItem.unit,
+                emoji: priceItem.emoji || '🛒'
+              });
+            }
+          } catch (error) {
+            console.error('Error saving price data for item:', priceItem.name, error);
+          }
+        }
+        
+        showToast(`Added ${tempReceiptData.items.length} items to price tracker`, 'success');
+      }
+      
+      // Clear temporary data
+      setTempReceiptData(null);
       setBulkItems({ new: [], existing: [] });
       showToast(`Added ${bulkItems.new.length} new items and updated ${bulkItems.existing.length} existing items`, 'success');
     } catch (error) {
