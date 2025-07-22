@@ -273,13 +273,13 @@ export default function RecipesPage() {
           {filteredRecipes.map((recipe) => (
             <div key={recipe.id} className="relative">
               <Link href={`/recipes/${recipe.id}`}>
-                <Card className="h-full hover:shadow-lg transition-shadow cursor-pointer">
-                  <div className="aspect-[4/3] relative overflow-hidden">
+                <Card className="h-full hover:shadow-lg transition-shadow cursor-pointer overflow-hidden">
+                  <div className="h-48 relative overflow-hidden">
                     {recipe.image ? (
                       <img
                         src={recipe.image}
                         alt={recipe.title}
-                        className="w-full h-48 object-cover"
+                        className="w-full h-full object-cover"
                         onError={(e) => {
                           const target = e.target as HTMLImageElement;
                           target.src = `/api/placeholder/400/300?text=${encodeURIComponent(recipe.title)}`;
@@ -291,14 +291,14 @@ export default function RecipesPage() {
                       </div>
                     )}
                   </div>
-                  <CardHeader>
-                    <CardTitle className="line-clamp-2">{recipe.title}</CardTitle>
-                    <CardDescription>
+                  <CardHeader className="p-4 pb-2">
+                    <CardTitle className="line-clamp-2 text-lg">{recipe.title}</CardTitle>
+                    <CardDescription className="text-sm">
                       {recipe.servings && `${recipe.servings} • `}
                       {recipe.prepTime}
                     </CardDescription>
                   </CardHeader>
-                  <CardContent>
+                  <CardContent className="p-4 pt-2">
                     <StarRating rating={recipe.rating || 0} recipeId={recipe.id} />
                     {recipe.tags && recipe.tags.length > 0 && (
                       <div className="mt-3 flex flex-wrap gap-1">
