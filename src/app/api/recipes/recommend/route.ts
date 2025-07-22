@@ -108,19 +108,34 @@ For each recipe, provide:
 6. Step-by-step instructions (4-8 steps)
 7. usageFromPantry array showing which pantry items are used
 
-Format your response as a JSON array with this structure:
-[{
-  "title": "Recipe Name",
-  "description": "Brief recipe description",
-  "servings": "${numberOfPeople}",
-  "prepTime": "30 minutes",
-  "ingredients": [
-    {"name": "flour", "quantity": 2, "unit": "cups"},
-    {"name": "eggs", "quantity": 3, "unit": "pcs"}
-  ],
-  "instructions": ["step 1", "step 2"],
-  "usageFromPantry": [{"itemId": "id", "quantity": number, "unit": "unit"}]
-}]
+CRITICAL FORMATTING RULES:
+- You MUST respond with ONLY valid JSON, no other text
+- Start your response with { and end with }
+- Your response must be a JSON object with a "recipes" array
+- Instructions MUST be an array of strings, NOT a single string
+- Each instruction should be a complete sentence
+- Do NOT use any markdown formatting or code blocks
+
+Format your response EXACTLY like this example:
+{
+  "recipes": [{
+    "title": "Recipe Name",
+    "description": "Brief recipe description",
+    "servings": "${numberOfPeople}",
+    "prepTime": "30 minutes",
+    "ingredients": [
+      {"name": "flour", "quantity": 2, "unit": "cups"},
+      {"name": "eggs", "quantity": 3, "unit": "pcs"}
+    ],
+    "instructions": [
+      "First, prepare all ingredients",
+      "Next, mix the dry ingredients",
+      "Then add wet ingredients",
+      "Finally, cook and serve"
+    ],
+    "usageFromPantry": [{"itemId": "id", "quantity": 2, "unit": "cups"}]
+  }]
+}
 
 CRITICAL INGREDIENT RULES:
 - Each ingredient MUST be an object with name, quantity, and unit fields
@@ -143,34 +158,64 @@ Scale all quantities appropriately for ${numberOfPeople} servings. The usageFrom
           content: `Available ingredients: ${availableList}${mustUse.length > 0 ? `. Must use: ${mustUseList}` : ''}. Please suggest ${numberOfPeople}-serving recipes.`
         }
       ],
-      max_tokens: 1000,
+      max_tokens: 1500,
       temperature: 0.7,
+      response_format: { type: "json_object" }
     });
 
-    const aiResponse = completion.choices[0]?.message?.content || '[]';
+    const aiResponse = completion.choices[0]?.message?.content || '{}';
+    console.log('AI Response:', aiResponse);
     
     try {
-      const recipes = JSON.parse(aiResponse);
+      // Clean the response - remove any markdown code blocks if present
+      let cleanedResponse = aiResponse.trim();
+      
+      // Remove markdown code blocks if present
+      cleanedResponse = cleanedResponse.replace(/```json\n?/g, '').replace(/```\n?/g, '');
+      
+      // If the response is wrapped in an object, extract the recipes array
+      let parsedData = JSON.parse(cleanedResponse);
+      
+      // Extract recipes array from the response
+      let recipes = parsedData.recipes || [];
+      
+      // Ensure recipes is an array
+      if (!Array.isArray(recipes)) {
+        throw new Error('Invalid response format: recipes must be an array');
+      }
+      
+      // Validate and clean each recipe
+      recipes = recipes.map((recipe: any) => {
+        // Ensure instructions is an array of strings
+        let instructions = recipe.instructions;
+        if (typeof instructions === 'string') {
+          // Split by common delimiters if it's a single string
+          instructions = instructions.split(/\d+\.\s*|\n/).filter((s: string) => s.trim());
+        } else if (!Array.isArray(instructions)) {
+          instructions = ['Prepare and cook according to standard methods'];
+        }
+        
+        // Ensure all required fields exist
+        return {
+          title: recipe.title || 'Untitled Recipe',
+          description: recipe.description || 'A delicious recipe from your pantry',
+          servings: recipe.servings || numberOfPeople.toString(),
+          prepTime: recipe.prepTime || '30 minutes',
+          ingredients: Array.isArray(recipe.ingredients) ? recipe.ingredients : [],
+          instructions: instructions.map((inst: any) => String(inst).trim()),
+          usageFromPantry: Array.isArray(recipe.usageFromPantry) ? recipe.usageFromPantry : []
+        };
+      });
+      
       return NextResponse.json({ recipes });
     } catch (parseError) {
-      // If parsing fails, return a simple recipe format
+      console.error('Parse error:', parseError);
+      console.error('Raw AI response:', aiResponse);
+      
+      // Return a simple error response
       return NextResponse.json({
-        recipes: [{
-          title: 'AI Recipe Suggestion',
-          servings: '4',
-          prepTime: '30 minutes',
-          ingredients: pantryIngredients.map(ing => ({
-            name: ing.name,
-            quantity: ing.quantity,
-            unit: ing.unit
-          })),
-          instructions: aiResponse.split('\n').filter(line => line.trim()),
-          usageFromPantry: pantryIngredients.map(ing => ({
-            itemId: ing.id,
-            quantity: ing.quantity,
-            unit: ing.unit
-          }))
-        }]
+        error: 'Failed to parse recipe data. Please try again.',
+        recipes: []
       });
     }
 

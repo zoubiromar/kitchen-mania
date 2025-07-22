@@ -783,6 +783,7 @@ export default function PantryPage() {
 
   const getRecipeRecommendations = async () => {
     setIsGettingRecommendations(true);
+    showToast('Generating recipes...', 'info');
     try {
       const mustUseItems = selectedForRecipe.size > 0 
         ? pantryItems.filter(item => selectedForRecipe.has(item.id))
@@ -822,10 +823,14 @@ export default function PantryPage() {
           usageFromPantry: recipe.usageFromPantry || []
         }));
         setRecipes(recipesWithIds);
+        showToast(`Generated ${data.recipes.length} recipes!`, 'success');
+      } else {
+        showToast('No recipes generated. Please try again.', 'error');
       }
     } catch (error) {
       console.error('Error getting recommendations:', error);
       setRecipes([]);
+      showToast('Failed to generate recipes. Please try again.', 'error');
     }
     setIsGettingRecommendations(false);
   };

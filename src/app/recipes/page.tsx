@@ -2,16 +2,15 @@
 
 import { useState, useEffect } from 'react';
 import Link from 'next/link';
-import Image from 'next/image';
+import { useRouter } from 'next/navigation';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
+import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from '@/components/ui/card';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
-import { Trash2, Plus } from 'lucide-react';
-import { useAuth } from '@/components/AuthContext';
+import { ArrowLeft, Plus, Search, ChefHat, Edit, Trash2 } from 'lucide-react';
+import { Toast, useToast } from '@/components/toast';
+import { ProtectedRoute, useAuth } from '@/components/AuthContext';
 import { database } from '@/lib/database';
-import { ProtectedRoute } from '@/components/AuthContext';
-import { useRouter } from 'next/navigation';
 
 interface RecipeIngredient {
   name: string;
