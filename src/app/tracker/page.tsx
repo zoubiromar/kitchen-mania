@@ -53,6 +53,19 @@ export default function TrackerPage() {
   const [editingItem, setEditingItem] = useState<PriceEntry | null>(null);
   const [showReceiptImage, setShowReceiptImage] = useState<string | null>(null);
   const [isEditMode, setIsEditMode] = useState(false);
+  const [isAddingItem, setIsAddingItem] = useState(false);
+  const [newItem, setNewItem] = useState<PriceEntry>({
+    id: '',
+    name: '',
+    stores: [{
+      store: '',
+      price: 0,
+      date: new Date().toISOString().split('T')[0]
+    }],
+    target_price: null,
+    unit: 'pcs',
+    emoji: '🛒'
+  });
   const [draggedItem, setDraggedItem] = useState<PriceEntry | null>(null);
   const [dragOverItem, setDragOverItem] = useState<PriceEntry | null>(null);
   const [isLoading, setIsLoading] = useState(true);
@@ -364,13 +377,36 @@ export default function TrackerPage() {
                   {isEditMode ? 'Drag items to reorder or click minus to remove' : 'Click on any item to edit details'}
                 </CardDescription>
               </div>
-              <Button
-                variant="outline"
-                size="sm"
-                onClick={() => setIsEditMode(!isEditMode)}
-              >
-                {isEditMode ? 'Done' : 'Edit'}
-              </Button>
+              <div className="flex gap-2">
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={() => {
+                    setNewItem({
+                      id: '',
+                      name: '',
+                      stores: [{
+                        store: '',
+                        price: 0,
+                        date: new Date().toISOString().split('T')[0]
+                      }],
+                      target_price: null,
+                      unit: 'pcs',
+                      emoji: '🛒'
+                    });
+                    setIsAddingItem(true);
+                  }}
+                >
+                  Add Item
+                </Button>
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={() => setIsEditMode(!isEditMode)}
+                >
+                  {isEditMode ? 'Done' : 'Edit'}
+                </Button>
+              </div>
             </div>
           </CardHeader>
           <CardContent>
@@ -571,11 +607,32 @@ export default function TrackerPage() {
                 <div className="grid grid-cols-2 gap-4">
                   <div>
                     <Label htmlFor="editUnit">Unit</Label>
-                    <Input
-                      id="editUnit"
+                    <Select
                       value={editingItem.unit}
-                      onChange={(e) => setEditingItem({...editingItem, unit: e.target.value})}
-                    />
+                      onValueChange={(value) => setEditingItem({...editingItem, unit: value})}
+                    >
+                      <SelectTrigger id="editUnit">
+                        <SelectValue placeholder="Select unit" />
+                      </SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="pcs">pcs</SelectItem>
+                        <SelectItem value="kg">kg</SelectItem>
+                        <SelectItem value="g">g</SelectItem>
+                        <SelectItem value="lbs">lbs</SelectItem>
+                        <SelectItem value="oz">oz</SelectItem>
+                        <SelectItem value="L">L</SelectItem>
+                        <SelectItem value="ml">ml</SelectItem>
+                        <SelectItem value="gal">gal</SelectItem>
+                        <SelectItem value="fl oz">fl oz</SelectItem>
+                        <SelectItem value="cups">cups</SelectItem>
+                        <SelectItem value="bunch">bunch</SelectItem>
+                        <SelectItem value="bag">bag</SelectItem>
+                        <SelectItem value="box">box</SelectItem>
+                        <SelectItem value="can">can</SelectItem>
+                        <SelectItem value="jar">jar</SelectItem>
+                        <SelectItem value="bottle">bottle</SelectItem>
+                      </SelectContent>
+                    </Select>
                   </div>
                   <div>
                     <Label htmlFor="editTargetPrice">Target Price</Label>
@@ -597,7 +654,7 @@ export default function TrackerPage() {
                   <Label>Store Prices</Label>
                   <div className="space-y-2 mt-2">
                     {editingItem.stores.map((store, index) => (
-                      <div key={index} className="grid grid-cols-4 gap-2 p-2 border rounded">
+                      <div key={index} className="p-3 border rounded space-y-2">
                         <Input
                           placeholder="Store name"
                           value={store.store}
@@ -606,37 +663,40 @@ export default function TrackerPage() {
                             newStores[index] = {...store, store: e.target.value};
                             setEditingItem({...editingItem, stores: newStores});
                           }}
+                          className="w-full"
                         />
-                        <Input
-                          type="number"
-                          step="0.01"
-                          placeholder="Price"
-                          value={store.price}
-                          onChange={(e) => {
-                            const newStores = [...editingItem.stores];
-                            newStores[index] = {...store, price: parseFloat(e.target.value) || 0};
-                            setEditingItem({...editingItem, stores: newStores});
-                          }}
-                        />
-                        <Input
-                          type="date"
-                          value={store.date}
-                          onChange={(e) => {
-                            const newStores = [...editingItem.stores];
-                            newStores[index] = {...store, date: e.target.value};
-                            setEditingItem({...editingItem, stores: newStores});
-                          }}
-                        />
-                        <Button
-                          variant="destructive"
-                          size="sm"
-                          onClick={() => {
-                            const newStores = editingItem.stores.filter((_, i) => i !== index);
-                            setEditingItem({...editingItem, stores: newStores});
-                          }}
-                        >
-                          Remove
-                        </Button>
+                        <div className="grid grid-cols-3 gap-2">
+                          <Input
+                            type="number"
+                            step="0.01"
+                            placeholder="Price"
+                            value={store.price}
+                            onChange={(e) => {
+                              const newStores = [...editingItem.stores];
+                              newStores[index] = {...store, price: parseFloat(e.target.value) || 0};
+                              setEditingItem({...editingItem, stores: newStores});
+                            }}
+                          />
+                          <Input
+                            type="date"
+                            value={store.date}
+                            onChange={(e) => {
+                              const newStores = [...editingItem.stores];
+                              newStores[index] = {...store, date: e.target.value};
+                              setEditingItem({...editingItem, stores: newStores});
+                            }}
+                          />
+                          <Button
+                            variant="destructive"
+                            size="sm"
+                            onClick={() => {
+                              const newStores = editingItem.stores.filter((_, i) => i !== index);
+                              setEditingItem({...editingItem, stores: newStores});
+                            }}
+                          >
+                            Remove
+                          </Button>
+                        </div>
                       </div>
                     ))}
                     
@@ -671,6 +731,163 @@ export default function TrackerPage() {
                     Delete Item
                   </Button>
                   <Button variant="outline" onClick={() => setEditingItem(null)}>
+                    Cancel
+                  </Button>
+                </div>
+              </div>
+            </DialogContent>
+          </Dialog>
+        )}
+
+        {/* Add Item Dialog */}
+        {isAddingItem && (
+          <Dialog open={isAddingItem} onOpenChange={setIsAddingItem}>
+            <DialogContent className="max-w-4xl max-h-[80vh] overflow-y-auto">
+              <DialogHeader>
+                <DialogTitle>Add New Price Tracker Item</DialogTitle>
+                <DialogDescription>
+                  Add a new item to track prices across different stores
+                </DialogDescription>
+              </DialogHeader>
+              <div className="space-y-4">
+                <div>
+                  <Label htmlFor="newName">Item Name</Label>
+                  <Input
+                    id="newName"
+                    value={newItem.name}
+                    onChange={(e) => setNewItem({...newItem, name: e.target.value})}
+                    placeholder="Enter item name"
+                  />
+                </div>
+                
+                <div className="grid grid-cols-2 gap-4">
+                  <div>
+                    <Label htmlFor="newUnit">Unit</Label>
+                    <Select
+                      value={newItem.unit}
+                      onValueChange={(value) => setNewItem({...newItem, unit: value})}
+                    >
+                      <SelectTrigger id="newUnit">
+                        <SelectValue placeholder="Select unit" />
+                      </SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="pcs">pcs</SelectItem>
+                        <SelectItem value="kg">kg</SelectItem>
+                        <SelectItem value="g">g</SelectItem>
+                        <SelectItem value="lbs">lbs</SelectItem>
+                        <SelectItem value="oz">oz</SelectItem>
+                        <SelectItem value="L">L</SelectItem>
+                        <SelectItem value="ml">ml</SelectItem>
+                        <SelectItem value="gal">gal</SelectItem>
+                        <SelectItem value="fl oz">fl oz</SelectItem>
+                        <SelectItem value="cups">cups</SelectItem>
+                        <SelectItem value="bunch">bunch</SelectItem>
+                        <SelectItem value="bag">bag</SelectItem>
+                        <SelectItem value="box">box</SelectItem>
+                        <SelectItem value="can">can</SelectItem>
+                        <SelectItem value="jar">jar</SelectItem>
+                        <SelectItem value="bottle">bottle</SelectItem>
+                      </SelectContent>
+                    </Select>
+                  </div>
+                  <div>
+                    <Label htmlFor="newTargetPrice">Target Price (Optional)</Label>
+                    <Input
+                      id="newTargetPrice"
+                      type="number"
+                      step="0.01"
+                      value={newItem.target_price || ''}
+                      onChange={(e) => setNewItem({
+                        ...newItem, 
+                        target_price: e.target.value ? parseFloat(e.target.value) : null
+                      })}
+                      placeholder="0.00"
+                    />
+                  </div>
+                </div>
+
+                {/* Store Prices */}
+                <div>
+                  <Label>Initial Store Price</Label>
+                  <div className="p-3 border rounded space-y-2 mt-2">
+                    <Input
+                      placeholder="Store name"
+                      value={newItem.stores[0].store}
+                      onChange={(e) => {
+                        const newStores = [...newItem.stores];
+                        newStores[0] = {...newStores[0], store: e.target.value};
+                        setNewItem({...newItem, stores: newStores});
+                      }}
+                      className="w-full"
+                    />
+                    <div className="grid grid-cols-2 gap-2">
+                      <Input
+                        type="number"
+                        step="0.01"
+                        placeholder="Price"
+                        value={newItem.stores[0].price || ''}
+                        onChange={(e) => {
+                          const newStores = [...newItem.stores];
+                          newStores[0] = {...newStores[0], price: parseFloat(e.target.value) || 0};
+                          setNewItem({...newItem, stores: newStores});
+                        }}
+                      />
+                      <Input
+                        type="date"
+                        value={newItem.stores[0].date}
+                        onChange={(e) => {
+                          const newStores = [...newItem.stores];
+                          newStores[0] = {...newStores[0], date: e.target.value};
+                          setNewItem({...newItem, stores: newStores});
+                        }}
+                      />
+                    </div>
+                  </div>
+                </div>
+                
+                <div className="flex gap-2 mt-6">
+                  <Button 
+                    onClick={async () => {
+                      if (!user || !newItem.name || !newItem.stores[0].store) {
+                        showToast('Please fill in all required fields', 'error');
+                        return;
+                      }
+                      
+                      try {
+                        const { error } = await database.priceTracker.add(user.id, {
+                          name: newItem.name,
+                          stores: newItem.stores.filter(s => s.store && s.price > 0),
+                          target_price: newItem.target_price,
+                          unit: newItem.unit,
+                          emoji: newItem.emoji
+                        });
+                        
+                        if (error) throw error;
+                        
+                        showToast('Item added successfully', 'success');
+                        setIsAddingItem(false);
+                        
+                        // Reload price history
+                        const { data: priceData } = await database.priceTracker.getAll(user.id);
+                        setPriceHistory(priceData?.map(item => ({
+                          id: item.id,
+                          name: item.name,
+                          stores: item.stores || [],
+                          target_price: item.target_price,
+                          unit: item.unit,
+                          emoji: item.emoji || '🛒'
+                        })) || []);
+                      } catch (error) {
+                        console.error('Error adding item:', error);
+                        showToast('Failed to add item', 'error');
+                      }
+                    }} 
+                    className="flex-1"
+                    disabled={!newItem.name || !newItem.stores[0].store}
+                  >
+                    Add Item
+                  </Button>
+                  <Button variant="outline" onClick={() => setIsAddingItem(false)}>
                     Cancel
                   </Button>
                 </div>

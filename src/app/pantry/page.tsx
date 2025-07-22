@@ -185,10 +185,10 @@ export default function PantryPage() {
         if (!items || items.length === 0) {
           const isMetric = profile?.unit_system === 'metric';
           const defaultItems = [
-            { name: 'Eggs', emoji: '🥚', quantity: 12, unit: 'pcs', category: 'Dairy' },
             { name: 'Milk', emoji: '🥛', quantity: 1, unit: isMetric ? 'L' : 'gal', category: 'Dairy' },
-            { name: 'Bread', emoji: '🍞', quantity: 1, unit: 'loaf', category: 'Grains' },
-            { name: 'Butter', emoji: '🧈', quantity: 1, unit: isMetric ? 'pack' : 'stick', category: 'Dairy' },
+            { name: 'Eggs', emoji: '🥚', quantity: 12, unit: 'pcs', category: 'Dairy' },
+            { name: 'Bread', emoji: '🍞', quantity: 1, unit: 'pcs', category: 'Grains' },
+            { name: 'Butter', emoji: '🧈', quantity: 100, unit: 'g', category: 'Dairy' },
             { name: 'Tomatoes', emoji: '🍅', quantity: 6, unit: 'pcs', category: 'Vegetables' },
             { name: 'Onions', emoji: '🧅', quantity: 3, unit: 'pcs', category: 'Vegetables' },
             { name: 'Chicken', emoji: '🍗', quantity: isMetric ? 1 : 2, unit: isMetric ? 'kg' : 'lbs', category: 'Meat' },

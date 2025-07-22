@@ -258,7 +258,11 @@ export default function AccountPage() {
       setAvatarUrl(data.publicUrl)
       showMessage('success', 'Avatar uploaded successfully!')
     } catch (error: any) {
-      showMessage('error', error.message || 'Failed to upload avatar')
+      if (error.message && error.message.includes('row-level security') || error.message.includes('violates row-level security policy')) {
+        showMessage('error', 'Avatar upload requires storage permissions. Please contact support or check Supabase Storage policies for the avatars bucket.')
+      } else {
+        showMessage('error', error.message || 'Failed to upload avatar')
+      }
     } finally {
       setLoading(false)
     }
