@@ -631,12 +631,24 @@ export default function TrackerPage() {
                 <div className="grid grid-cols-2 gap-4">
                   <div>
                     <Label htmlFor="newStore">Store</Label>
-                    <Input
-                      id="newStore"
-                      placeholder="Store name"
+                    <Select
                       value={newItem.store}
-                      onChange={(e) => setNewItem({...newItem, store: e.target.value})}
-                    />
+                      onValueChange={(value) => setNewItem({...newItem, store: value})}
+                    >
+                      <SelectTrigger id="newStore">
+                        <SelectValue placeholder="Select or type store name" />
+                      </SelectTrigger>
+                      <SelectContent>
+                        {getAllMerchants().filter(m => m !== 'all').map(store => (
+                          <SelectItem key={store} value={store}>
+                            {store}
+                          </SelectItem>
+                        ))}
+                        <SelectItem value="">
+                          <span className="text-gray-500">Clear selection</span>
+                        </SelectItem>
+                      </SelectContent>
+                    </Select>
                   </div>
                   <div>
                     <Label htmlFor="newDate">Date</Label>

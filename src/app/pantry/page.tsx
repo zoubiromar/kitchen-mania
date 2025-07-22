@@ -1290,8 +1290,8 @@ export default function PantryPage() {
                       type="number"
                       step="0.1"
                       placeholder="0"
-                      value={newItem.quantity || ''}
-                      onChange={(e) => setNewItem({...newItem, quantity: parseFloat(e.target.value) || 0})}
+                      value={newItem.quantity === 0 ? '' : newItem.quantity.toString()}
+                      onChange={(e) => setNewItem({...newItem, quantity: e.target.value === '' ? 0 : parseFloat(e.target.value) || 0})}
                     />
                   </div>
                   <div className="space-y-2">
@@ -1462,19 +1462,35 @@ export default function PantryPage() {
                   <div>
                     <Label htmlFor="store-select">Store Name</Label>
                     <div className="flex gap-2 mt-1">
-                      <Input
-                        id="store-select"
+                      <Select
                         value={selectedStore || tempReceiptData.merchant || ''}
+                        onValueChange={(value) => setSelectedStore(value)}
+                      >
+                        <SelectTrigger className="flex-1">
+                          <SelectValue placeholder="Select or enter store name" />
+                        </SelectTrigger>
+                        <SelectContent>
+                          {tempReceiptData.merchant && !existingStores.includes(tempReceiptData.merchant) && (
+                            <SelectItem value={tempReceiptData.merchant}>
+                              {tempReceiptData.merchant} (detected)
+                            </SelectItem>
+                          )}
+                          {existingStores.map(store => (
+                            <SelectItem key={store} value={store}>
+                              {store}
+                            </SelectItem>
+                          ))}
+                          <SelectItem value="">
+                            <span className="text-gray-500">Clear selection</span>
+                          </SelectItem>
+                        </SelectContent>
+                      </Select>
+                      <Input
+                        placeholder="Or type new store"
+                        value={selectedStore || ''}
                         onChange={(e) => setSelectedStore(e.target.value)}
-                        placeholder="Enter store name"
-                        list="store-list"
                         className="flex-1"
                       />
-                      <datalist id="store-list">
-                        {existingStores.map(store => (
-                          <option key={store} value={store} />
-                        ))}
-                      </datalist>
                     </div>
                   </div>
                 )}
@@ -1498,7 +1514,7 @@ export default function PantryPage() {
                             <Input
                               type="number"
                               value={item.quantity}
-                              onChange={(e) => updateBulkItem('new', index, { quantity: parseInt(e.target.value) || 0 })}
+                              onChange={(e) => updateBulkItem('new', index, { quantity: e.target.value === '' ? 0 : parseInt(e.target.value) || 0 })}
                               className="w-full sm:w-20"
                               placeholder="Qty"
                             />
@@ -1550,7 +1566,7 @@ export default function PantryPage() {
                             <Input
                               type="number"
                               value={update.addQuantity}
-                              onChange={(e) => updateBulkItem('existing', index, { addQuantity: parseInt(e.target.value) || 0 })}
+                              onChange={(e) => updateBulkItem('existing', index, { addQuantity: e.target.value === '' ? 0 : parseInt(e.target.value) || 0 })}
                               className="w-full sm:w-20"
                               placeholder="Add"
                             />
