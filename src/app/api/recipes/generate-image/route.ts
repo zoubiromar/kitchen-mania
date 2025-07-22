@@ -46,7 +46,7 @@ export async function POST(request: NextRequest) {
       } else {
         throw new Error('No image URL in response');
       }
-    } catch (dalleError: any) {
+    } catch (dalleError) {
       // Try with DALL-E 2 if DALL-E 3 fails
       try {
         const response = await openai.images.generate({

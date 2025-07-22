@@ -1,27 +1,21 @@
-'use client'
+'use client';
 
-import { useState, useEffect } from 'react'
-import { useRouter } from 'next/navigation'
-import { Button } from '@/components/ui/button'
-import { Input } from '@/components/ui/input'
-import { Label } from '@/components/ui/label'
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
-import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs'
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
-import { Textarea } from '@/components/ui/textarea'
-import { useAuth } from '@/components/AuthContext'
-import { auth } from '@/lib/auth'
-import { supabase } from '@/lib/supabase'
-import { User, Mail, Lock, Settings, Trash2, Globe, Upload, Save, Loader2, Plus } from 'lucide-react'
-import {
-  Dialog,
-  DialogContent,
-  DialogDescription,
-  DialogFooter,
-  DialogHeader,
-  DialogTitle,
-  DialogTrigger,
-} from "@/components/ui/dialog"
+import { useState, useEffect, useCallback } from 'react';
+import { useRouter } from 'next/navigation';
+import { Button } from '@/components/ui/button';
+import { Input } from '@/components/ui/input';
+import { Label } from '@/components/ui/label';
+import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
+import { Checkbox } from '@/components/ui/checkbox';
+import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
+import { Badge } from '@/components/ui/badge';
+import { AlertCircle, ArrowLeft, Save, Trash2, User } from 'lucide-react';
+import { Alert, AlertDescription } from '@/components/ui/alert';
+import { ProtectedRoute, useAuth } from '@/components/AuthContext';
+import { Toast, useToast } from '@/components/toast';
+import { database } from '@/lib/database';
+import { supabase } from '@/lib/supabase';
 
 // Define available units
 const UNIT_SYSTEMS = {
@@ -165,7 +159,7 @@ export default function AccountPage() {
     
     setLoading(true)
     try {
-      const { error } = await auth.updatePassword(newPassword)
+      const { error } = await supabase.auth.updateUser(user!, { password: newPassword })
       if (error) throw error
       
       showMessage('success', 'Password updated successfully!')
@@ -383,7 +377,6 @@ export default function AccountPage() {
                       </div>
                     )}
                     <label htmlFor="avatar-upload" className="absolute bottom-0 right-0 bg-blue-600 text-white p-2 rounded-full cursor-pointer hover:bg-blue-700">
-                      <Upload className="w-4 h-4" />
                       <input 
                         id="avatar-upload"
                         type="file" 
@@ -426,12 +419,12 @@ export default function AccountPage() {
 
                   <div className="grid gap-2">
                     <Label htmlFor="bio">Bio</Label>
-                    <Textarea
+                    <Input
                       id="bio"
+                      type="text"
                       value={bio}
                       onChange={(e) => setBio(e.target.value)}
                       placeholder="Tell us about yourself"
-                      rows={4}
                     />
                   </div>
                 </div>

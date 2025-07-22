@@ -1,23 +1,23 @@
 'use client';
 
-import { useState, useRef, useEffect } from 'react';
+import { useState, useEffect } from 'react';
 import Link from 'next/link';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
-import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle, DialogTrigger } from '@/components/ui/dialog';
+import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
-import { Checkbox } from '@/components/ui/checkbox';
-import { Pencil, ChevronDown, Camera, FileText, Plus, Receipt, ChefHat, Sparkles, BookOpen, Minus } from 'lucide-react';
-import { Toast, useToast } from '@/components/toast';
-import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from '@/components/ui/dropdown-menu';
 import { Textarea } from '@/components/ui/textarea';
-import { saveReceiptData, savePriceData } from '@/utils/localStorage';
-import { useAuth } from '@/components/AuthContext';
+import { Badge } from '@/components/ui/badge';
+import { Plus, ChevronDown, Pencil, ArrowLeft, AlertCircle, Trash2, X, Lightbulb, Loader, Eye, RefreshCw, ShoppingCart, ChefHat, Package, MoreVertical, Camera, GripVertical, Minus, Sparkles, BookOpen, FileText } from 'lucide-react';
+import { Checkbox } from '@/components/ui/checkbox';
+import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from '@/components/ui/dropdown-menu';
+import { ProtectedRoute, useAuth } from '@/components/AuthContext';
+import { saveReceiptData } from '@/utils/localStorage';
 import { database } from '@/lib/database';
+import { Toast, useToast } from '@/components/toast';
 import { supabase } from '@/lib/supabase';
-import { ProtectedRoute } from '@/components/AuthContext';
 
 interface PantryItem {
   id: string;
@@ -126,7 +126,6 @@ export default function PantryPage() {
   const [isGettingRecommendations, setIsGettingRecommendations] = useState(false);
   const [editingItemId, setEditingItemId] = useState<string | null>(null);
   const [editingQuantityId, setEditingQuantityId] = useState<string | null>(null);
-  const [editingUnitId, setEditingUnitId] = useState<string | null>(null);
   const [showEmojiPicker, setShowEmojiPicker] = useState<string | null>(null);
   const [draggedItem, setDraggedItem] = useState<PantryItem | null>(null);
   const [dragOverCategory, setDragOverCategory] = useState<string | null>(null);
@@ -1135,6 +1134,8 @@ export default function PantryPage() {
                   </div>
                 </div>
                 <DropdownMenuItem onClick={() => {
+                  setUserPreference('');
+                  setNumberOfPeople(4);
                   setShowRecipePreference(true);
                 }}>
                   <Sparkles className="w-4 h-4 mr-2" />

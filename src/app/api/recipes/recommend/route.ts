@@ -174,7 +174,7 @@ Scale all quantities appropriately for ${numberOfPeople} servings. The usageFrom
       cleanedResponse = cleanedResponse.replace(/```json\n?/g, '').replace(/```\n?/g, '');
       
       // If the response is wrapped in an object, extract the recipes array
-      let parsedData = JSON.parse(cleanedResponse);
+      const parsedData = JSON.parse(cleanedResponse);
       
       // Extract recipes array from the response
       let recipes = parsedData.recipes || [];
