@@ -2,13 +2,11 @@
 
 import { useState, useEffect } from 'react';
 import Link from 'next/link';
-import { useRouter } from 'next/navigation';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
-import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from '@/components/ui/card';
+import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
-import { ArrowLeft, Plus, Search, ChefHat, Edit, Trash2 } from 'lucide-react';
-import { Toast, useToast } from '@/components/toast';
+import { Plus, Trash2 } from 'lucide-react';
 import { ProtectedRoute, useAuth } from '@/components/AuthContext';
 import { database } from '@/lib/database';
 
@@ -36,7 +34,6 @@ interface Recipe {
 
 export default function RecipesPage() {
   const { user } = useAuth();
-  const router = useRouter();
   const [recipes, setRecipes] = useState<Recipe[]>([]);
   const [filteredRecipes, setFilteredRecipes] = useState<Recipe[]>([]);
   const [searchTerm, setSearchTerm] = useState('');

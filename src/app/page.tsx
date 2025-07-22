@@ -1,8 +1,6 @@
 import Link from 'next/link';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
-import { ChefHat, Utensils, TrendingDown } from 'lucide-react';
-import { Toast, useToast } from '@/components/toast';
 
 export default function HomePage() {
   return (

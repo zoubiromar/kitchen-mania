@@ -9,8 +9,7 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/com
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Textarea } from '@/components/ui/textarea';
-import { Badge } from '@/components/ui/badge';
-import { Plus, ChevronDown, Pencil, ArrowLeft, AlertCircle, Trash2, X, Lightbulb, Loader, Eye, RefreshCw, ShoppingCart, ChefHat, Package, MoreVertical, Camera, GripVertical, Minus, Sparkles, BookOpen, FileText } from 'lucide-react';
+import { Plus, ChevronDown, Pencil, ChefHat, Camera, Minus, Sparkles, BookOpen, FileText } from 'lucide-react';
 import { Checkbox } from '@/components/ui/checkbox';
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from '@/components/ui/dropdown-menu';
 import { ProtectedRoute, useAuth } from '@/components/AuthContext';

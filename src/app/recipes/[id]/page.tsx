@@ -12,7 +12,7 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/u
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
-import { ArrowLeft, Clock, Users, Tag, Pencil, Upload, Sparkles, Plus, Minus } from 'lucide-react';
+import { ArrowLeft, Clock, Users, Tag, Pencil, Sparkles, Plus, Minus } from 'lucide-react';
 import { useAuth } from '@/components/AuthContext';
 import { database } from '@/lib/database';
 import { ProtectedRoute } from '@/components/AuthContext';
