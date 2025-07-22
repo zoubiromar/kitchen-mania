@@ -231,7 +231,7 @@ export default function AccountPage() {
       // Upload to Supabase Storage
       const fileExt = file.name.split('.').pop()
       const fileName = `${user.id}-${Date.now()}.${fileExt}`
-      const filePath = `avatars/${fileName}`
+      const filePath = fileName // Remove 'avatars/' prefix since we're already uploading to 'avatars' bucket
       
       const { error: uploadError } = await supabase.storage
         .from('avatars')

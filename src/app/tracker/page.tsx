@@ -207,13 +207,18 @@ export default function TrackerPage() {
     if (!user) return;
     
     try {
-      const { error } = await database.priceTracker.delete(id, user.id);
+      // Extract the original ID from the composite ID (format: originalId-store-date)
+      const originalId = id.split('-')[0];
+      
+      const { error } = await database.priceTracker.delete(originalId, user.id);
       if (error) throw error;
       
       const updatedHistory = priceHistory.filter(item => item.id !== id);
       setPriceHistory(updatedHistory);
+      showToast('Item deleted successfully', 'success');
     } catch (error) {
       console.error('Error deleting price entry:', error);
+      showToast('Failed to delete item', 'error');
     }
   };
 
@@ -384,10 +389,10 @@ export default function TrackerPage() {
                         {/* Latest Store with Edit button on mobile */}
                         {/* Removed latest store info as per edit hint */}
 
-                        {/* Actions - Desktop only */}
+                        {/* Actions - Always visible */}
                         {!isEditMode && (
-                          <div className="hidden sm:flex flex-col items-center gap-1 sm:ml-4">
-                            {/* View Receipt Button - Always show */}
+                          <div className="flex sm:flex-col items-center gap-1 mt-2 sm:mt-0 sm:ml-4">
+                            {/* View Receipt Button */}
                             <Button
                               variant="ghost"
                               size="sm"
@@ -403,6 +408,7 @@ export default function TrackerPage() {
                             >
                               <Eye className="w-4 h-4" />
                             </Button>
+                            {/* Edit Button */}
                             <Button
                               variant="ghost"
                               size="sm"
