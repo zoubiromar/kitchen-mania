@@ -315,9 +315,13 @@ export default function PantryPage() {
       setPantryItems(pantryItems.map(item => 
         item.id === id ? { ...item, ...updates } : item
       ));
-    } catch (error) {
+    } catch (error: any) {
       console.error('Error updating item:', error);
-      showToast('Failed to update item', 'error');
+      // Only show error toast if it's not a "no rows" error
+      const errorMessage = error?.message || error?.toString() || '';
+      if (!errorMessage.includes('JSON object requested') && !errorMessage.includes('no) rows returned')) {
+        showToast('Failed to update item', 'error');
+      }
     }
   };
 
@@ -650,6 +654,12 @@ export default function PantryPage() {
               ? { ...item, quantity: newQuantity }
               : item
           ));
+        } else {
+          // Only log errors if they're not "no rows found" errors
+          const errorMessage = error.message || error.toString();
+          if (!errorMessage.includes('JSON object requested') && !errorMessage.includes('no) rows returned')) {
+            console.error('Error updating item:', error);
+          }
         }
       }
       
@@ -1188,6 +1198,15 @@ export default function PantryPage() {
                       </Button>
                       {showEmojiPicker === 'new' && (
                         <div className="absolute top-12 left-0 z-50 bg-white border rounded-lg shadow-lg p-2 w-64 max-h-48 overflow-y-auto emoji-picker">
+                          <Button
+                            size="sm"
+                            variant="outline"
+                            className="w-full mb-2"
+                            onClick={() => generateEmojiForItem(newItem.name)}
+                            disabled={!newItem.name || generatingEmoji === 'new'}
+                          >
+                            {generatingEmoji === 'new' ? 'Generating...' : 'AI Generate Emoji'}
+                          </Button>
                           <div className="grid grid-cols-8 gap-1">
                             {commonEmojis.map((emoji, idx) => (
                               <button
@@ -1202,15 +1221,6 @@ export default function PantryPage() {
                               </button>
                             ))}
                           </div>
-                          <Button
-                            size="sm"
-                            variant="outline"
-                            className="w-full mt-2"
-                            onClick={() => generateEmojiForItem(newItem.name)}
-                            disabled={!newItem.name || generatingEmoji === 'new'}
-                          >
-                            {generatingEmoji === 'new' ? 'Generating...' : 'AI Generate Emoji'}
-                          </Button>
                         </div>
                       )}
                     </div>
@@ -1527,6 +1537,15 @@ export default function PantryPage() {
                         </Button>
                         {showEmojiPicker === 'edit' && (
                           <div className="absolute top-12 left-0 z-50 bg-white border rounded-lg shadow-lg p-2 w-64 max-h-48 overflow-y-auto emoji-picker">
+                            <Button
+                              size="sm"
+                              variant="outline"
+                              className="w-full mb-2"
+                              onClick={() => generateEmojiForItem(editingItem.name, 'edit')}
+                              disabled={generatingEmoji === 'edit'}
+                            >
+                              {generatingEmoji === 'edit' ? 'Generating...' : 'AI Generate Emoji'}
+                            </Button>
                             <div className="grid grid-cols-8 gap-1">
                               {commonEmojis.map((emoji, idx) => (
                                 <button
@@ -1541,15 +1560,6 @@ export default function PantryPage() {
                                 </button>
                               ))}
                             </div>
-                            <Button
-                              size="sm"
-                              variant="outline"
-                              className="w-full mt-2"
-                              onClick={() => generateEmojiForItem(editingItem.name, 'edit')}
-                              disabled={generatingEmoji === 'edit'}
-                            >
-                              {generatingEmoji === 'edit' ? 'Generating...' : 'AI Generate Emoji'}
-                            </Button>
                           </div>
                         )}
                       </div>
@@ -1842,6 +1852,15 @@ export default function PantryPage() {
                       </button>
                       {showEmojiPicker === item.id && (
                         <div className="absolute top-16 left-1/2 transform -translate-x-1/2 z-50 bg-white border rounded-lg shadow-lg p-2 w-64 max-h-48 overflow-y-auto emoji-picker">
+                          <Button
+                            size="sm"
+                            variant="outline"
+                            className="w-full mb-2"
+                            onClick={() => generateEmojiForItem(item.name, item.id)}
+                            disabled={generatingEmoji === item.id}
+                          >
+                            {generatingEmoji === item.id ? 'Generating...' : 'AI Generate Emoji'}
+                          </Button>
                           <div className="grid grid-cols-8 gap-1">
                             {commonEmojis.map((emoji, idx) => (
                               <button
@@ -1856,15 +1875,6 @@ export default function PantryPage() {
                               </button>
                             ))}
                           </div>
-                          <Button
-                            size="sm"
-                            variant="outline"
-                            className="w-full mt-2"
-                            onClick={() => generateEmojiForItem(item.name, item.id)}
-                            disabled={generatingEmoji === item.id}
-                          >
-                            {generatingEmoji === item.id ? 'Generating...' : 'AI Generate Emoji'}
-                          </Button>
                         </div>
                       )}
                     </div>

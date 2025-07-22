@@ -264,11 +264,10 @@ export default function RecipesPage() {
                 <Card className="h-full hover:shadow-lg transition-shadow cursor-pointer">
                   <div className="aspect-[4/3] relative overflow-hidden">
                     {recipe.image ? (
-                      <Image
+                      <img
                         src={recipe.image}
                         alt={recipe.title}
-                        fill
-                        className="object-cover"
+                        className="w-full h-full object-cover"
                         onError={(e) => {
                           const target = e.target as HTMLImageElement;
                           target.src = `https://via.placeholder.com/400x300.png?text=${encodeURIComponent(recipe.title)}`;
