@@ -9,6 +9,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import { Plus, Trash2 } from 'lucide-react';
 import { ProtectedRoute, useAuth } from '@/components/AuthContext';
 import { database } from '@/lib/database';
+import { deleteStoredImage, isStoredImage } from '@/lib/imageStorage';
 
 interface RecipeIngredient {
   name: string;
@@ -150,11 +151,26 @@ export default function RecipesPage() {
     if (!user) return;
     
     try {
+      // Find the recipe to get its image URL before deletion
+      const recipeToDelete = recipes.find(r => r.id === recipeId);
+      
+      // Delete the recipe from database
       const { error } = await database.recipes.delete(recipeId, user.id);
       if (error) throw error;
       
-      const updatedRecipes = recipes.filter(recipe => recipe.id !== recipeId);
-      setRecipes(updatedRecipes);
+      // Delete associated image if it exists and is stored in our storage
+      if (recipeToDelete?.image && isStoredImage(recipeToDelete.image)) {
+        console.log('Deleting recipe image:', recipeToDelete.image);
+        const imageDeleted = await deleteStoredImage(recipeToDelete.image);
+        if (imageDeleted) {
+          console.log('Recipe image deleted successfully');
+        } else {
+          console.warn('Failed to delete recipe image');
+        }
+      }
+      
+      // Update local state
+      setRecipes(recipes.filter(r => r.id !== recipeId));
     } catch (error) {
       console.error('Error deleting recipe:', error);
     }

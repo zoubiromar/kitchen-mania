@@ -16,6 +16,8 @@ import { ArrowLeft, Clock, Users, Tag, Pencil, Sparkles, Plus, Minus } from 'luc
 import { useAuth } from '@/components/AuthContext';
 import { database } from '@/lib/database';
 import { ProtectedRoute } from '@/components/AuthContext';
+import { Toast, useToast } from '@/components/toast';
+import { deleteStoredImage, isStoredImage } from '@/lib/imageStorage';
 
 interface RecipeIngredient {
   name: string;
@@ -140,6 +142,20 @@ export default function RecipeDetailPage() {
     if (!editingRecipe || !recipe || !user) return;
 
     try {
+      // Check if image URL has changed and delete old image if it's a stored image
+      const oldImageUrl = recipe.image;
+      const newImageUrl = editingRecipe.image;
+      
+      if (oldImageUrl && oldImageUrl !== newImageUrl && isStoredImage(oldImageUrl)) {
+        console.log('Deleting old image:', oldImageUrl);
+        const deleted = await deleteStoredImage(oldImageUrl);
+        if (deleted) {
+          console.log('Old image deleted successfully');
+        } else {
+          console.warn('Failed to delete old image');
+        }
+      }
+
       // Prepare data for database update
       const updates = {
         title: editingRecipe.title,
