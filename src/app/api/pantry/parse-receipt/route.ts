@@ -268,24 +268,43 @@ export async function PUT(request: NextRequest) {
         match = existingItems?.find((existing: any) => {
           const existingNorm = existing.name.toLowerCase().trim();
           
-          // Check if one contains the other (but avoid false matches)
-          // e.g. "2% Milk" matches "Milk", but "Olive Oil" doesn't match "Vegetable Oil"
-          const blacklistPairs = [
-            ['olive', 'vegetable'],
-            ['coconut', 'vegetable'],
-            ['butter', 'margarine'],
-            ['cream', 'milk'],
-          ];
+          // Split into words for better matching
+          const extractedWords = normalizedName.split(/\s+/).filter((w: string) => w.length > 2);
+          const existingWords = existingNorm.split(/\s+/).filter((w: string) => w.length > 2);
           
-          // Check blacklist
-          for (const [word1, word2] of blacklistPairs) {
-            if ((normalizedName.includes(word1) && existingNorm.includes(word2)) ||
-                (normalizedName.includes(word2) && existingNorm.includes(word1))) {
-              return false;
+          // Count matching words (ignoring order)
+          const matchingWords = extractedWords.filter((word: string) => 
+            existingWords.some((existingWord: string) => 
+              existingWord.includes(word) || word.includes(existingWord)
+            )
+          );
+          
+          // If most words match, it's likely the same item
+          const matchRatio = matchingWords.length / Math.max(extractedWords.length, existingWords.length);
+          if (matchRatio >= 0.7) {
+            // Check blacklist to avoid false positives
+            const blacklistPairs = [
+              ['olive', 'vegetable'],
+              ['coconut', 'vegetable'],
+              ['butter', 'margarine'],
+              ['cream', 'milk'],
+              ['salmon', 'tuna'],
+              ['chicken', 'beef'],
+              ['pork', 'beef'],
+            ];
+            
+            // Check blacklist
+            for (const [word1, word2] of blacklistPairs) {
+              if ((normalizedName.includes(word1) && existingNorm.includes(word2)) ||
+                  (normalizedName.includes(word2) && existingNorm.includes(word1))) {
+                return false;
+              }
             }
+            
+            return true;
           }
           
-          // Check for partial match
+          // Fallback to original logic for shorter items
           return (normalizedName.includes(existingNorm) || 
                   existingNorm.includes(normalizedName)) &&
                  Math.abs(normalizedName.length - existingNorm.length) < 10;

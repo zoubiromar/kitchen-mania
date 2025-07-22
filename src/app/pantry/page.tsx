@@ -146,6 +146,8 @@ export default function PantryPage() {
   const [editingCategoryName, setEditingCategoryName] = useState<string | null>(null);
   const [categoryNames, setCategoryNames] = useState<Record<string, string>>({});
   const [tempReceiptData, setTempReceiptData] = useState<any>(null);
+  const [selectedStore, setSelectedStore] = useState<string>('');
+  const [existingStores, setExistingStores] = useState<string[]>([]);
 
   // Get available units based on user preferences
   const getAvailableUnits = () => {

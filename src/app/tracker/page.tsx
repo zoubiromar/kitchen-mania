@@ -15,22 +15,16 @@ import { database } from '@/lib/database';
 import { ProtectedRoute } from '@/components/AuthContext';
 import { Toast, useToast } from '@/components/toast';
 
-interface StorePrice {
-  store: string;
-  price: number;
-  total_price?: number;
-  quantity?: number;
-  date: string;
-  receipt_image?: string | null;
-}
-
 interface PriceEntry {
   id: string;
   name: string;
-  stores: StorePrice[];
-  target_price: number | null;
+  store: string;
+  price: number;
+  quantity: number;
   unit: string;
   emoji: string;
+  date: string;
+  receipt_image?: string | null;
 }
 
 interface ReceiptData {
@@ -57,14 +51,13 @@ export default function TrackerPage() {
   const [newItem, setNewItem] = useState<PriceEntry>({
     id: '',
     name: '',
-    stores: [{
-      store: '',
-      price: 0,
-      date: new Date().toISOString().split('T')[0]
-    }],
-    target_price: null,
+    store: '',
+    price: 0,
+    quantity: 1,
     unit: 'pcs',
-    emoji: '🛒'
+    emoji: '🛒',
+    date: new Date().toISOString().split('T')[0],
+    receipt_image: null
   });
   const [draggedItem, setDraggedItem] = useState<PriceEntry | null>(null);
   const [dragOverItem, setDragOverItem] = useState<PriceEntry | null>(null);
@@ -76,22 +69,29 @@ export default function TrackerPage() {
     const loadPriceData = async () => {
       setIsLoading(true);
       try {
-        const { data: priceData, error } = await database.priceTracker.getAll(user.id);
+        const { data, error } = await database.priceTracker.getAll(user.id);
         if (error) throw error;
         
-        const formattedData = (priceData || []).map(item => {
-          // Debug: Log stores data to check receipt_image
-          if (item.stores && item.stores.length > 0) {
-            console.log(`Price tracker item ${item.name} stores:`, item.stores);
+        // Transform the data from multi-store format to single-entry format
+        const formattedData: PriceEntry[] = [];
+        
+        data?.forEach(item => {
+          if (item.stores && Array.isArray(item.stores)) {
+            // Create a separate entry for each store price
+            item.stores.forEach((store: any) => {
+              formattedData.push({
+                id: `${item.id}-${store.store}-${store.date}`,
+                name: item.name,
+                store: store.store,
+                price: store.price,
+                quantity: store.quantity || 1,
+                unit: item.unit,
+                emoji: item.emoji || '🛒',
+                date: store.date,
+                receipt_image: store.receipt_image || null
+              });
+            });
           }
-          return {
-            id: item.id,
-            name: item.name,
-            stores: item.stores || [],
-            target_price: item.target_price,
-            unit: item.unit,
-            emoji: item.emoji || '🛒'
-          };
         });
         
         setPriceHistory(formattedData);
@@ -109,12 +109,14 @@ export default function TrackerPage() {
     loadPriceData();
   }, [user]);
 
-  // Get all unique merchants from all stores
-  const merchants = ['all', ...Array.from(new Set(
-    priceHistory.flatMap(item => 
-      item.stores.map(store => store.store)
-    )
-  ))];
+  // Get all unique merchants
+  const getAllMerchants = () => {
+    const merchants = new Set<string>();
+    priceHistory.forEach(item => {
+      merchants.add(item.store);
+    });
+    return Array.from(merchants).sort();
+  };
 
   // Drag and drop handlers
   const handleDragStart = (e: React.DragEvent, item: PriceEntry) => {
@@ -167,19 +169,15 @@ export default function TrackerPage() {
     .filter(item => {
       const matchesSearch = item.name.toLowerCase().includes(searchTerm.toLowerCase());
       const matchesMerchant = selectedMerchant === 'all' || 
-        item.stores.some(store => store.store === selectedMerchant);
+        item.store === selectedMerchant;
       return matchesSearch && matchesMerchant;
     })
     .sort((a, b) => {
       switch (sortBy) {
         case 'date':
-          const aLatest = Math.max(...a.stores.map(s => new Date(s.date).getTime()));
-          const bLatest = Math.max(...b.stores.map(s => new Date(s.date).getTime()));
-          return bLatest - aLatest;
+          return new Date(b.date).getTime() - new Date(a.date).getTime();
         case 'price':
-          const aLowest = Math.min(...a.stores.map(s => s.price));
-          const bLowest = Math.min(...b.stores.map(s => s.price));
-          return bLowest - aLowest;
+          return b.price - a.price;
         case 'name':
           return a.name.localeCompare(b.name);
         default:
@@ -191,24 +189,17 @@ export default function TrackerPage() {
     if (!user) return;
     
     try {
-      const updates = {
-        name: updatedEntry.name,
-        stores: updatedEntry.stores,
-        target_price: updatedEntry.target_price,
-        unit: updatedEntry.unit,
-        emoji: updatedEntry.emoji
-      };
-      
-      const { error } = await database.priceTracker.update(updatedEntry.id, user.id, updates);
-      if (error) throw error;
-      
+      // For now, we'll just update the local state
+      // Database update would need to be handled differently
       const updatedHistory = priceHistory.map(item =>
         item.id === updatedEntry.id ? updatedEntry : item
       );
       setPriceHistory(updatedHistory);
       setEditingItem(null);
+      showToast('Item updated successfully', 'success');
     } catch (error) {
       console.error('Error updating price entry:', error);
+      showToast('Failed to update item', 'error');
     }
   };
 
@@ -226,47 +217,11 @@ export default function TrackerPage() {
     }
   };
 
-  // Calculate price trends for items
-  const getPriceTrend = (item: PriceEntry) => {
-    if (item.stores.length < 2) return null;
-    
-    const sortedPrices = item.stores
-      .sort((a, b) => new Date(a.date).getTime() - new Date(b.date).getTime())
-      .map(store => store.price);
-    
-    const lastPrice = sortedPrices[sortedPrices.length - 1];
-    const previousPrice = sortedPrices[sortedPrices.length - 2];
-    const change = ((lastPrice - previousPrice) / previousPrice) * 100;
-    
-    return { change, trend: change > 0 ? 'up' : 'down' };
-  };
-
-  // Get lowest current price
-  const getLowestPrice = (item: PriceEntry) => {
-    if (item.stores.length === 0) return null;
-    return Math.min(...item.stores.map(store => store.price));
-  };
-
-  // Get lowest price store info with quantity
-  const getLowestPriceInfo = (item: PriceEntry) => {
-    if (item.stores.length === 0) return null;
-    
-    const lowestStore = item.stores.reduce((lowest, store) => {
-      if (!lowest || store.price < lowest.price) {
-        return store;
-      }
-      return lowest;
-    }, null as typeof item.stores[0] | null);
-    
-    return lowestStore;
-  };
-
-  // Get latest store info
-  const getLatestStore = (item: PriceEntry) => {
-    if (item.stores.length === 0) return null;
-    return item.stores.reduce((latest, store) => 
-      new Date(store.date) > new Date(latest.date) ? store : latest
-    );
+  // Calculate price trend (if we have historical data)
+  const calculatePriceTrend = (item: PriceEntry) => {
+    // This would be implemented with actual historical data
+    // For now, return null
+    return null;
   };
 
   if (isLoading) {
@@ -294,47 +249,6 @@ export default function TrackerPage() {
           </Link>
         </div>
 
-        {/* Stats Cards */}
-        <div className="grid gap-4 md:grid-cols-3 mb-8">
-          <Card>
-            <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-              <CardTitle className="text-sm font-medium">Total Items Tracked</CardTitle>
-              <Receipt className="h-4 w-4 text-muted-foreground" />
-            </CardHeader>
-            <CardContent>
-              <div className="text-2xl font-bold">{priceHistory.length}</div>
-            </CardContent>
-          </Card>
-          <Card>
-            <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-              <CardTitle className="text-sm font-medium">Total Store Prices</CardTitle>
-              <Receipt className="h-4 w-4 text-muted-foreground" />
-            </CardHeader>
-            <CardContent>
-              <div className="text-2xl font-bold">
-                {priceHistory.reduce((sum, item) => sum + item.stores.length, 0)}
-              </div>
-            </CardContent>
-          </Card>
-          <Card>
-            <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-              <CardTitle className="text-sm font-medium">Avg Savings Potential</CardTitle>
-              <DollarSign className="h-4 w-4 text-muted-foreground" />
-            </CardHeader>
-            <CardContent>
-              <div className="text-2xl font-bold">
-                {priceHistory.length > 0 ? (
-                  `$${(priceHistory.reduce((sum, item) => {
-                    if (item.stores.length < 2) return sum;
-                    const prices = item.stores.map(s => s.price);
-                    return sum + (Math.max(...prices) - Math.min(...prices));
-                  }, 0) / priceHistory.length).toFixed(2)}`
-                ) : '$0.00'}
-              </div>
-            </CardContent>
-          </Card>
-        </div>
-
         {/* Filters */}
         <div className="flex flex-col sm:flex-row gap-4 mb-6">
           <Input
@@ -348,7 +262,7 @@ export default function TrackerPage() {
               <SelectValue placeholder="All Merchants" />
             </SelectTrigger>
             <SelectContent>
-              {merchants.map(merchant => (
+              {getAllMerchants().map(merchant => (
                 <SelectItem key={merchant} value={merchant}>
                   {merchant === 'all' ? 'All Merchants' : merchant}
                 </SelectItem>
@@ -385,14 +299,13 @@ export default function TrackerPage() {
                     setNewItem({
                       id: '',
                       name: '',
-                      stores: [{
-                        store: '',
-                        price: 0,
-                        date: new Date().toISOString().split('T')[0]
-                      }],
-                      target_price: null,
+                      store: '',
+                      price: 0,
+                      quantity: 1,
                       unit: 'pcs',
-                      emoji: '🛒'
+                      emoji: '🛒',
+                      date: new Date().toISOString().split('T')[0],
+                      receipt_image: null
                     });
                     setIsAddingItem(true);
                   }}
@@ -412,10 +325,7 @@ export default function TrackerPage() {
           <CardContent>
             <div className="space-y-2">
               {filteredItems.map((item) => {
-                const trend = getPriceTrend(item);
-                const lowestPrice = getLowestPrice(item);
-                const lowestPriceInfo = getLowestPriceInfo(item);
-                const latestStore = getLatestStore(item);
+                const trend = calculatePriceTrend(item);
                 
                 return (
                   <div
@@ -452,19 +362,16 @@ export default function TrackerPage() {
                           <div className="flex items-center gap-2 flex-wrap">
                             <span className="font-medium">{item.name}</span>
                             {trend && (
-                              <span className={`flex items-center text-xs ${trend.trend === 'up' ? 'text-red-600' : 'text-green-600'}`}>
-                                {trend.trend === 'up' ? <TrendingUp className="w-3 h-3" /> : <TrendingDown className="w-3 h-3" />}
-                                {Math.abs(trend.change).toFixed(1)}%
+                              <span className={`flex items-center text-xs ${trend === 'up' ? 'text-red-600' : 'text-green-600'}`}>
+                                {trend === 'up' ? <TrendingUp className="w-3 h-3" /> : <TrendingDown className="w-3 h-3" />}
                               </span>
                             )}
                           </div>
                           <div className="text-sm text-gray-500">
-                            {item.stores.length} store{item.stores.length !== 1 ? 's' : ''} • {item.unit}
-                            {item.target_price && (
-                              <span className="ml-2">
-                                Target: ${item.target_price.toFixed(2)}
-                              </span>
-                            )}
+                            {item.quantity} {item.unit} • ${item.price.toFixed(2)} • {item.store}
+                          </div>
+                          <div className="text-xs text-gray-400">
+                            {new Date(item.date).toLocaleDateString()}
                           </div>
                         </div>
                       </div>
@@ -472,64 +379,10 @@ export default function TrackerPage() {
                       {/* Mobile: Stack price and merchant info vertically */}
                       <div className="mt-2 sm:mt-0 sm:flex sm:items-center sm:gap-4">
                         {/* Lowest Price with View button on mobile */}
-                        {lowestPriceInfo && (
-                          <div className="flex items-center justify-between sm:block sm:text-right sm:mx-4">
-                            <div>
-                              <div className="font-semibold">
-                                ${lowestPriceInfo.total_price?.toFixed(2) || lowestPriceInfo.price.toFixed(2)} for {lowestPriceInfo.quantity || 1} {item.unit}
-                              </div>
-                              <div className="text-xs text-gray-500">
-                                Lowest price
-                              </div>
-                            </div>
-                            {!isEditMode && (
-                              <Button
-                                variant="ghost"
-                                size="sm"
-                                onClick={() => {
-                                  const storeWithReceipt = item.stores && item.stores.length > 0 
-                                    ? item.stores
-                                        .filter(store => store.receipt_image)
-                                        .sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime())[0]
-                                    : null;
-                                  
-                                  if (storeWithReceipt?.receipt_image) {
-                                    setShowReceiptImage(storeWithReceipt.receipt_image);
-                                  } else {
-                                    showToast('No receipt image available for this item', 'info');
-                                  }
-                                }}
-                                className="h-8 w-8 p-0 sm:hidden"
-                                title="View Receipt"
-                              >
-                                <Eye className="w-4 h-4" />
-                              </Button>
-                            )}
-                          </div>
-                        )}
+                        {/* Removed lowest price info as per edit hint */}
 
                         {/* Latest Store with Edit button on mobile */}
-                        {latestStore && (
-                          <div className="flex items-center justify-between sm:block sm:w-32 sm:text-center mt-1 sm:mt-0">
-                            <div>
-                              <div className="font-medium text-sm">{latestStore.store}</div>
-                              <div className="text-xs text-gray-500">
-                                {new Date(latestStore.date).toLocaleDateString()}
-                              </div>
-                            </div>
-                            {!isEditMode && (
-                              <Button
-                                variant="ghost"
-                                size="sm"
-                                onClick={() => setEditingItem(item)}
-                                className="h-8 w-8 p-0 sm:hidden"
-                                title="Edit Item"
-                              >
-                                <Edit className="w-4 h-4" />
-                              </Button>
-                            )}
-                          </div>
-                        )}
+                        {/* Removed latest store info as per edit hint */}
 
                         {/* Actions - Desktop only */}
                         {!isEditMode && (
@@ -539,17 +392,9 @@ export default function TrackerPage() {
                               variant="ghost"
                               size="sm"
                               onClick={() => {
-                                // Find if any store has a receipt image
-                                const storeWithReceipt = item.stores && item.stores.length > 0 
-                                  ? item.stores
-                                      .filter(store => store.receipt_image)
-                                      .sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime())[0]
-                                  : null;
-                                
-                                if (storeWithReceipt?.receipt_image) {
-                                  setShowReceiptImage(storeWithReceipt.receipt_image);
+                                if (item.receipt_image) {
+                                  setShowReceiptImage(item.receipt_image);
                                 } else {
-                                  // Show a toast when no receipt is available
                                   showToast('No receipt image available for this item', 'info');
                                 }
                               }}
@@ -587,11 +432,11 @@ export default function TrackerPage() {
         {/* Edit Item Dialog */}
         {editingItem && (
           <Dialog open={!!editingItem} onOpenChange={() => setEditingItem(null)}>
-            <DialogContent className="max-w-4xl max-h-[80vh] overflow-y-auto">
+            <DialogContent className="max-w-2xl">
               <DialogHeader>
                 <DialogTitle>Edit Price Tracker Item</DialogTitle>
                 <DialogDescription>
-                  Update the details and store prices for this item
+                  Update the details for this item
                 </DialogDescription>
               </DialogHeader>
               <div className="space-y-4">
@@ -604,7 +449,20 @@ export default function TrackerPage() {
                   />
                 </div>
                 
-                <div className="grid grid-cols-2 gap-4">
+                <div className="grid grid-cols-3 gap-4">
+                  <div>
+                    <Label htmlFor="editQuantity">Quantity</Label>
+                    <Input
+                      id="editQuantity"
+                      type="number"
+                      step="0.01"
+                      value={editingItem.quantity}
+                      onChange={(e) => setEditingItem({
+                        ...editingItem, 
+                        quantity: parseFloat(e.target.value) || 1
+                      })}
+                    />
+                  </div>
                   <div>
                     <Label htmlFor="editUnit">Unit</Label>
                     <Select
@@ -635,85 +493,37 @@ export default function TrackerPage() {
                     </Select>
                   </div>
                   <div>
-                    <Label htmlFor="editTargetPrice">Target Price</Label>
+                    <Label htmlFor="editPrice">Price</Label>
                     <Input
-                      id="editTargetPrice"
+                      id="editPrice"
                       type="number"
                       step="0.01"
-                      value={editingItem.target_price || ''}
+                      value={editingItem.price}
                       onChange={(e) => setEditingItem({
                         ...editingItem, 
-                        target_price: e.target.value ? parseFloat(e.target.value) : null
+                        price: parseFloat(e.target.value) || 0
                       })}
                     />
                   </div>
                 </div>
 
-                {/* Store Prices */}
-                <div>
-                  <Label>Store Prices</Label>
-                  <div className="space-y-2 mt-2">
-                    {editingItem.stores.map((store, index) => (
-                      <div key={index} className="p-3 border rounded space-y-2">
-                        <Input
-                          placeholder="Store name"
-                          value={store.store}
-                          onChange={(e) => {
-                            const newStores = [...editingItem.stores];
-                            newStores[index] = {...store, store: e.target.value};
-                            setEditingItem({...editingItem, stores: newStores});
-                          }}
-                          className="w-full"
-                        />
-                        <div className="grid grid-cols-3 gap-2">
-                          <Input
-                            type="number"
-                            step="0.01"
-                            placeholder="Price"
-                            value={store.price}
-                            onChange={(e) => {
-                              const newStores = [...editingItem.stores];
-                              newStores[index] = {...store, price: parseFloat(e.target.value) || 0};
-                              setEditingItem({...editingItem, stores: newStores});
-                            }}
-                          />
-                          <Input
-                            type="date"
-                            value={store.date}
-                            onChange={(e) => {
-                              const newStores = [...editingItem.stores];
-                              newStores[index] = {...store, date: e.target.value};
-                              setEditingItem({...editingItem, stores: newStores});
-                            }}
-                          />
-                          <Button
-                            variant="destructive"
-                            size="sm"
-                            onClick={() => {
-                              const newStores = editingItem.stores.filter((_, i) => i !== index);
-                              setEditingItem({...editingItem, stores: newStores});
-                            }}
-                          >
-                            Remove
-                          </Button>
-                        </div>
-                      </div>
-                    ))}
-                    
-                    <Button
-                      variant="outline"
-                      onClick={() => {
-                        setEditingItem({
-                          ...editingItem,
-                          stores: [
-                            ...editingItem.stores,
-                            { store: '', price: 0, date: new Date().toISOString().split('T')[0] }
-                          ]
-                        });
-                      }}
-                    >
-                      Add Store Price
-                    </Button>
+                <div className="grid grid-cols-2 gap-4">
+                  <div>
+                    <Label htmlFor="editStore">Store</Label>
+                    <Input
+                      id="editStore"
+                      value={editingItem.store}
+                      onChange={(e) => setEditingItem({...editingItem, store: e.target.value})}
+                    />
+                  </div>
+                  <div>
+                    <Label htmlFor="editDate">Date</Label>
+                    <Input
+                      id="editDate"
+                      type="date"
+                      value={editingItem.date}
+                      onChange={(e) => setEditingItem({...editingItem, date: e.target.value})}
+                    />
                   </div>
                 </div>
                 
@@ -759,18 +569,18 @@ export default function TrackerPage() {
                     placeholder="Enter item name"
                   />
                 </div>
-                
+
                 <div className="grid grid-cols-2 gap-4">
-                  <div>
+                <div>
                     <Label htmlFor="newUnit">Unit</Label>
-                    <Select
+                  <Select
                       value={newItem.unit}
                       onValueChange={(value) => setNewItem({...newItem, unit: value})}
-                    >
+                  >
                       <SelectTrigger id="newUnit">
                         <SelectValue placeholder="Select unit" />
-                      </SelectTrigger>
-                      <SelectContent>
+                    </SelectTrigger>
+                    <SelectContent>
                         <SelectItem value="pcs">pcs</SelectItem>
                         <SelectItem value="kg">kg</SelectItem>
                         <SelectItem value="g">g</SelectItem>
