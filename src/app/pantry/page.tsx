@@ -1023,7 +1023,8 @@ export default function PantryPage() {
         difficulty: 'Medium' as const,
         rating: 0,
         image_url: imageData.imageUrl || `https://via.placeholder.com/400x300.png?text=${encodeURIComponent(recipe.title)}`,
-        unit_system: unitSystem
+        unit_system: unitSystem,
+        tags: []
       };
       
       // Save to database
@@ -1067,7 +1068,8 @@ export default function PantryPage() {
         difficulty: 'Medium' as const,
         rating: 0,
         image_url: `https://via.placeholder.com/400x300.png?text=${encodeURIComponent(recipe.title)}`,
-        unit_system: unitSystem
+        unit_system: unitSystem,
+        tags: []
       };
       
       try {
