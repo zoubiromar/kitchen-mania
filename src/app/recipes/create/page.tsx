@@ -200,7 +200,8 @@ export default function CreateRecipePage() {
         difficulty: 'Medium' as const,
         rating: 0,
         image_url: imageUrl,
-        unit_system: 'metric' as const
+        unit_system: 'metric' as const,
+        tags: []
       };
 
       const { data, error } = await database.recipes.add(user.id, recipeData);
