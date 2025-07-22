@@ -2,12 +2,14 @@ import { NextRequest, NextResponse } from 'next/server';
 import OpenAI from 'openai';
 
 interface ReceiptItem {
+  exists?: boolean;
   name: string;
   quantity: number;
   unit: string;
-  category?: string;
   price?: number;
   totalPrice?: number;
+  category?: string;
+  purchaseDate?: string;
 }
 
 interface ReceiptData {
@@ -15,6 +17,8 @@ interface ReceiptData {
   merchant?: string;
   date?: string;
   total?: number;
+  isReceipt?: boolean; // Added for response validation
+  error?: string; // Added for response validation
 }
 
 export async function POST(request: NextRequest) {
@@ -86,37 +90,54 @@ export async function POST(request: NextRequest) {
       ? 'Use metric units when units are ambiguous: kg, g for weight; liters, ml for volume'
       : 'Use imperial units when units are ambiguous: lbs, oz for weight; cups, fl oz for volume';
     
-    const systemPrompt = `You are an expert receipt analyzer. Analyze the provided image to extract grocery/store receipt information.
+    const systemPrompt = `You are an expert receipt analyzer. Your task is to extract ALL items from a grocery/store receipt.
 
-STEP 1: Determine if this is a receipt
-- Look for typical receipt elements: store name, items with prices, total, date
-- If it's NOT a receipt, return: {"isReceipt": false, "error": "Not a valid receipt image"}
+CRITICAL INSTRUCTIONS:
+1. Extract EVERY SINGLE LINE ITEM from the receipt - do not skip any!
+2. Look carefully at the entire image, from top to bottom
+3. If you see multiple items, you MUST list them all in the items array
+4. Each product line on the receipt = one item in your response
 
-STEP 2: Extract items from the receipt
-Read each line item and extract:
+STEP 1: Receipt Validation
+- Check for: store name, items with prices, total, date
+- If NOT a receipt: {"isReceipt": false, "error": "Not a valid receipt image"}
+
+STEP 2: Item Extraction Rules
+For EACH line item on the receipt:
 - Product name (translate to English if needed)
-- Quantity (default to 1 if not specified, look for duplicates marked with *)
-- Price information
+- Quantity (look for qty indicators like "2@", "*2", or duplicate lines)
+- Unit price (price per item)
+- Total price (quantity × unit price)
+- Default unit: "pcs" unless size specified (e.g., 375G → "g", 2L → "L")
 - ${unitPreferences}
 
-TRANSLATION GUIDE:
-- LACTANTIA PURFILT.LAIT = Lactantia Purfiltre Milk
-- PILONS DE POULET = Chicken Drumsticks
-- SAUMON FUME = Smoked Salmon
-- FAM. = Family size
+COMMON PATTERNS:
+- "ITEM NAME     $X.XX" = 1 item at X.XX
+- "*ITEM NAME    $X.XX" = duplicate of previous item
+- "ITEM NAME 2@$X.XX $Y.YY" = 2 items at X.XX each, total Y.YY
+- "ITEM NAME 375G  $X.XX" = 375g package
 
-OUTPUT FORMAT:
+TRANSLATION EXAMPLES:
+- LACTANTIA PURFILT.LAIT = Lactantia Purfiltre Milk
+- PILONS DE POULET = Chicken Drumsticks  
+- SAUMON FUME = Smoked Salmon
+- OEUFS = Eggs
+- PAIN = Bread
+- BEURRE = Butter
+- FROMAGE = Cheese
+
+OUTPUT FORMAT (return ONLY valid JSON):
 {
   "isReceipt": true,
   "items": [
     {
       "exists": false,
-      "name": "Product Name in English",
+      "name": "Product Name",
       "quantity": 1,
       "unit": "pcs",
       "price": 0.00,
       "totalPrice": 0.00,
-      "category": "Dairy|Meat|Vegetables|Fruits|Grains|Snacks|Beverages|Condiments|Uncategorized",
+      "category": "Category",
       "purchaseDate": "${today}"
     }
   ],
@@ -125,13 +146,11 @@ OUTPUT FORMAT:
   "total": 0.00
 }
 
+CATEGORIES: Dairy, Meat, Vegetables, Fruits, Grains, Snacks, Beverages, Condiments, Seafood, Uncategorized
+
 ${existingItemsText}
 
-IMPORTANT NOTES:
-- Items marked with * at the beginning are duplicates - count them properly
-- Use "pcs" as default unit unless size is specified (e.g., 375G, 2%)
-- Extract the actual price shown on the receipt
-- Common French terms: LAIT=Milk, POULET=Chicken, FROMAGE=Cheese`;
+REMEMBER: Extract EVERY item visible on the receipt. If you see 10 items, return 10 items. Missing items is an error!`;
 
     const response = await openai.chat.completions.create({
       model: "gpt-4o",
@@ -145,74 +164,80 @@ IMPORTANT NOTES:
           content: [
             {
               type: "text",
-              text: "Analyze this image. Is it a grocery/store receipt? If yes, extract each line item with name, quantity, and price. Items marked with * are duplicates. Return JSON as specified in the system prompt."
+              text: "Analyze this receipt image and extract ALL items. Return the data in the exact JSON format specified."
             },
             {
               type: "image_url",
               image_url: {
-                url: imageBase64.startsWith('data:') ? imageBase64 : `data:image/jpeg;base64,${imageBase64}`,
-                detail: "high"
+                url: `data:image/jpeg;base64,${imageBase64}`
               }
             }
           ]
         }
       ],
-      response_format: { type: "json_object" },
-      max_tokens: 2000,
       temperature: 0.1,
+      max_tokens: 2000,
     });
 
     const content = response.choices[0]?.message?.content || '{}';
     console.log('OpenAI Response:', content);
     
     try {
-      const receiptData = JSON.parse(content);
+      // Clean the response
+      const cleanContent = content.replace(/```json\n?|\n?```/g, '').trim();
+      const receiptData = JSON.parse(cleanContent) as ReceiptData;
       
-      // Check if it's a valid receipt
-      if (receiptData.isReceipt === false) {
-        console.log('Not a receipt:', receiptData.error);
-        return NextResponse.json(
-          { error: receiptData.error || 'Not a valid receipt image' },
-          { status: 400 }
-        );
+      // Validate response
+      if (!receiptData.isReceipt) {
+        return NextResponse.json(receiptData, { status: 400 });
       }
       
-      // Validate the response structure
-      if (!receiptData.items || !Array.isArray(receiptData.items)) {
-        throw new Error('Invalid response structure from AI');
+      // Ensure items array exists and has proper structure
+      if (!Array.isArray(receiptData.items)) {
+        throw new Error('Invalid response: items must be an array');
       }
       
-      // Ensure all items have required fields
-      receiptData.items = receiptData.items.filter((item: any) => 
-        item.name && 
-        typeof item.quantity === 'number' && 
-        item.unit
-      );
+      // Validate and clean each item
+      receiptData.items = receiptData.items.map(item => ({
+        exists: item.exists || false,
+        name: item.name || 'Unknown Item',
+        quantity: typeof item.quantity === 'number' ? item.quantity : 1,
+        unit: item.unit || 'pcs',
+        price: typeof item.price === 'number' ? item.price : 0,
+        totalPrice: typeof item.totalPrice === 'number' ? item.totalPrice : (item.price || 0) * (item.quantity || 1),
+        category: item.category || 'Uncategorized',
+        purchaseDate: item.purchaseDate || today
+      }));
+      
+      // Log the number of items found
+      console.log(`Receipt processed: ${receiptData.items.length} items found from ${receiptData.merchant || 'Unknown Store'}`);
       
       return NextResponse.json(receiptData);
     } catch (parseError) {
-      console.error('Error parsing AI response:', parseError);
-      throw new Error('Failed to parse receipt data');
+      console.error('Error parsing OpenAI response:', parseError);
+      return NextResponse.json(
+        { error: 'Failed to parse receipt data. Please try again.' },
+        { status: 500 }
+      );
     }
   } catch (error) {
-    console.error('Error parsing receipt:', error);
+    console.error('Error in receipt parsing:', error);
     
-    // Return mock data on error for development
-    const today = new Date().toISOString().split('T')[0];
-    const fallbackItems = [
-      { exists: false, name: 'Ground Beef', quantity: 1.5, unit: 'lbs', price: 4.99, totalPrice: 7.49, category: 'Meat', purchaseDate: today },
-      { exists: false, name: 'Cheddar Cheese', quantity: 1, unit: 'lbs', price: 5.99, totalPrice: 5.99, category: 'Dairy', purchaseDate: today },
-      { exists: false, name: 'Yellow Onions', quantity: 3, unit: 'pcs', price: 0.66, totalPrice: 1.99, category: 'Vegetables', purchaseDate: today },
-      { exists: false, name: 'Pasta', quantity: 2, unit: 'boxes', price: 1.49, totalPrice: 2.98, category: 'Grains', purchaseDate: today },
-    ];
+    // Check if it's an OpenAI API error
+    if (error instanceof Error && error.message.includes('API')) {
+      return NextResponse.json(
+        { error: 'AI service temporarily unavailable. Please try again in a moment.' },
+        { status: 503 }
+      );
+    }
     
-    const mockData: ReceiptData = {
-      items: fallbackItems,
-      merchant: 'Local Grocery Store',
-      date: today,
-      total: fallbackItems.reduce((sum, item) => sum + item.totalPrice, 0)
-    };
-    
-    return NextResponse.json(mockData);
+    return NextResponse.json(
+      { 
+        error: 'Failed to process receipt image', 
+        details: error instanceof Error ? error.message : 'Unknown error',
+        isReceipt: false
+      },
+      { status: 500 }
+    );
   }
 } 

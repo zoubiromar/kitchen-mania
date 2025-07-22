@@ -452,7 +452,15 @@ export default function PantryPage() {
       
       const data = await response.json();
       
+      // Check if it's not a receipt
+      if (data.isReceipt === false) {
+        showToast(data.error || 'Not a valid receipt image', 'error');
+        setBulkImage(null);
+        return;
+      }
+      
       if (data.items && data.items.length > 0) {
+        console.log(`Processing ${data.items.length} items from receipt`);
         const parsedItems: PantryItem[] = [];
         const updates: {item: PantryItem, addQuantity: number}[] = [];
         const itemsForPriceTracking: any[] = [];
@@ -501,7 +509,7 @@ export default function PantryPage() {
         });
         
         // Save receipt data and price history
-        if (itemsForPriceTracking.length > 0) {
+        if (itemsForPriceTracking.length > 0 && user) {
           const receiptId = crypto.randomUUID();
           const receiptData = {
             id: receiptId,
@@ -513,21 +521,60 @@ export default function PantryPage() {
             receiptImage: dataUrl // Store the full data URL
           };
           
+          // Save receipt to localStorage for now (until we implement receipt storage in DB)
           saveReceiptData(receiptData);
           
-          // Save price tracking data with receipt image
-          itemsForPriceTracking.forEach(item => {
-            savePriceData({
-              ...item,
-              receiptId: receiptId,
-              stores: [{
-                store: data.merchant || 'Unknown Store',
-                price: item.price,
-                date: data.date || new Date().toISOString().split('T')[0],
-                receipt_image: dataUrl // Store the full data URL
-              }]
-            });
-          });
+          // Save each item to price tracker in database
+          for (const item of itemsForPriceTracking) {
+            try {
+              // Check if item already exists in price tracker
+              const { data: existingItems } = await database.priceTracker.getAll(user.id);
+              const existingItem = existingItems?.find(existing => 
+                existing.name.toLowerCase() === item.name.toLowerCase()
+              );
+              
+              if (existingItem) {
+                // Add new store price to existing item
+                const currentStores = existingItem.stores || [];
+                const newStoreEntry = {
+                  store: data.merchant || 'Unknown Store',
+                  price: item.price,
+                  total_price: item.totalPrice,
+                  quantity: item.quantity,
+                  date: data.date || new Date().toISOString().split('T')[0],
+                  receipt_image: dataUrl
+                };
+                
+                // Avoid duplicates from same store on same date
+                const updatedStores = currentStores.filter((store: any) => 
+                  !(store.store === newStoreEntry.store && store.date === newStoreEntry.date)
+                );
+                updatedStores.push(newStoreEntry);
+                
+                await database.priceTracker.updateStorePrices(existingItem.id, user.id, updatedStores);
+              } else {
+                // Create new price tracking item
+                await database.priceTracker.add(user.id, {
+                  name: item.name,
+                  stores: [{
+                    store: data.merchant || 'Unknown Store',
+                    price: item.price,
+                    total_price: item.totalPrice,
+                    quantity: item.quantity,
+                    date: data.date || new Date().toISOString().split('T')[0],
+                    receipt_image: dataUrl
+                  }],
+                  target_price: null,
+                  unit: item.unit,
+                  emoji: item.emoji || '🛒'
+                });
+              }
+            } catch (error) {
+              console.error('Error saving price data for item:', item.name, error);
+            }
+          }
+          
+          showToast(`Added ${itemsForPriceTracking.length} items to price tracker`, 'success');
         }
         
         setBulkItems({ new: parsedItems, existing: updates });
