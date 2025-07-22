@@ -263,7 +263,7 @@ export default function RecipesPage() {
                       <img
                         src={recipe.image}
                         alt={recipe.title}
-                        className="w-full h-full object-cover"
+                        className="w-full h-48 object-cover"
                         onError={(e) => {
                           const target = e.target as HTMLImageElement;
                           target.src = `/api/placeholder/400/300?text=${encodeURIComponent(recipe.title)}`;

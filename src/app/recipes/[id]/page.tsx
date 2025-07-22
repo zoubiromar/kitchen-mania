@@ -244,15 +244,13 @@ export default function RecipeDetailPage() {
         {/* Header Image */}
         <div className="relative h-64 md:h-80 lg:h-96 overflow-hidden bg-gray-200">
           {recipe.image ? (
-            <Image
+            <img
               src={recipe.image}
               alt={recipe.title}
-              fill
-              className="object-cover"
-              priority
+              className="w-full h-64 object-cover rounded-t-lg"
               onError={(e) => {
                 const target = e.target as HTMLImageElement;
-                target.src = `https://via.placeholder.com/1200x400.png?text=${encodeURIComponent(recipe.title)}`;
+                target.src = `/api/placeholder/400/300?text=${encodeURIComponent(recipe.title)}`;
               }}
             />
           ) : (

@@ -15,6 +15,7 @@ import { useAuth } from '@/components/AuthContext';
 import { database } from '@/lib/database';
 import { ProtectedRoute } from '@/components/AuthContext';
 import { Toast, useToast } from '@/components/toast';
+import { Badge } from '@/components/ui/badge';
 
 interface RecipeIngredient {
   name: string;
@@ -309,22 +310,17 @@ export default function CreateRecipePage() {
                   </CardHeader>
                   <CardContent>
                     {recipe.image ? (
-                      <div className="space-y-4">
-                        <div className="aspect-[4/3] relative overflow-hidden rounded-lg">
-                          <Image
-                            src={recipe.image}
-                            alt="Recipe preview"
-                            fill
-                            className="object-cover"
-                          />
-                        </div>
-                        <Button
-                          variant="outline"
-                          onClick={() => setRecipe(prev => ({ ...prev, image: '' }))}
-                          className="w-full"
-                        >
-                          Remove Image
-                        </Button>
+                      <div className="relative">
+                        <Badge className="absolute top-2 right-2 z-10">Preview</Badge>
+                        <img
+                          src={recipe.image}
+                          alt={recipe.title}
+                          className="w-full h-48 object-cover rounded-lg"
+                          onError={(e) => {
+                            const target = e.target as HTMLImageElement;
+                            target.src = `/api/placeholder/400/300?text=${encodeURIComponent(recipe.title)}`;
+                          }}
+                        />
                       </div>
                     ) : (
                       <div className="space-y-3">

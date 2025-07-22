@@ -534,12 +534,34 @@ export default function PantryPage() {
       const matchData = await matchResponse.json();
       const matchedItems = matchData.items || [];
       
+      // Consolidate duplicate items by name and unit
+      const consolidatedItems = matchedItems.reduce((acc: any[], item: any) => {
+        const existingIndex = acc.findIndex(
+          (existing) => existing.name.toLowerCase() === item.name.toLowerCase() && 
+                        existing.unit === item.unit
+        );
+        
+        if (existingIndex >= 0) {
+          // Item already exists, add quantities
+          acc[existingIndex].quantity += item.quantity;
+          // Update total price if both have prices
+          if (item.price !== undefined && item.price !== null) {
+            acc[existingIndex].totalPrice = (acc[existingIndex].totalPrice || 0) + (item.totalPrice || (item.price * item.quantity));
+          }
+        } else {
+          // New item, add to array
+          acc.push({...item});
+        }
+        
+        return acc;
+      }, []);
+      
       // Process matched items
       const parsedItems: PantryItem[] = [];
       const updates: {item: PantryItem, addQuantity: number}[] = [];
       const itemsForPriceTracking: any[] = [];
       
-      matchedItems.forEach((item: any) => {
+      consolidatedItems.forEach((item: any) => {
         // Prepare price tracking data
         if (item.price !== undefined && item.price !== null) {
           itemsForPriceTracking.push({
