@@ -272,9 +272,10 @@ export default function TrackerPage() {
               <SelectValue placeholder="All Merchants" />
             </SelectTrigger>
             <SelectContent>
+              <SelectItem value="all">All Stores</SelectItem>
               {getAllMerchants().map(merchant => (
                 <SelectItem key={merchant} value={merchant}>
-                  {merchant === 'all' ? 'All Merchants' : merchant}
+                  {merchant}
                 </SelectItem>
               ))}
             </SelectContent>
@@ -521,11 +522,28 @@ export default function TrackerPage() {
                 <div className="grid grid-cols-2 gap-4">
                   <div>
                     <Label htmlFor="editStore">Store</Label>
-                    <Input
-                      id="editStore"
-                      value={editingItem.store}
-                      onChange={(e) => setEditingItem({...editingItem, store: e.target.value})}
-                    />
+                    <div className="space-y-2">
+                      <Select
+                        value={editingItem.store}
+                        onValueChange={(value) => setEditingItem({...editingItem, store: value})}
+                      >
+                        <SelectTrigger>
+                          <SelectValue placeholder="Select existing store" />
+                        </SelectTrigger>
+                        <SelectContent>
+                          {getAllMerchants().map(store => (
+                            <SelectItem key={store} value={store}>
+                              {store}
+                            </SelectItem>
+                          ))}
+                        </SelectContent>
+                      </Select>
+                      <Input
+                        placeholder="Or type store name"
+                        value={editingItem.store}
+                        onChange={(e) => setEditingItem({...editingItem, store: e.target.value})}
+                      />
+                    </div>
                   </div>
                   <div>
                     <Label htmlFor="editDate">Date</Label>
