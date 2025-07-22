@@ -601,15 +601,15 @@ export default function TrackerPage() {
                     </Select>
                   </div>
                   <div>
-                    <Label htmlFor="newTargetPrice">Target Price (Optional)</Label>
+                    <Label htmlFor="newPrice">Price</Label>
                     <Input
-                      id="newTargetPrice"
+                      id="newPrice"
                       type="number"
                       step="0.01"
-                      value={newItem.target_price || ''}
+                      value={newItem.price || ''}
                       onChange={(e) => setNewItem({
                         ...newItem, 
-                        target_price: e.target.value ? parseFloat(e.target.value) : null
+                        price: parseFloat(e.target.value) || 0
                       })}
                       placeholder="0.00"
                     />
@@ -617,48 +617,31 @@ export default function TrackerPage() {
                 </div>
 
                 {/* Store Prices */}
-                <div>
-                  <Label>Initial Store Price</Label>
-                  <div className="p-3 border rounded space-y-2 mt-2">
+                <div className="grid grid-cols-2 gap-4">
+                  <div>
+                    <Label htmlFor="newStore">Store</Label>
                     <Input
+                      id="newStore"
                       placeholder="Store name"
-                      value={newItem.stores[0].store}
-                      onChange={(e) => {
-                        const newStores = [...newItem.stores];
-                        newStores[0] = {...newStores[0], store: e.target.value};
-                        setNewItem({...newItem, stores: newStores});
-                      }}
-                      className="w-full"
+                      value={newItem.store}
+                      onChange={(e) => setNewItem({...newItem, store: e.target.value})}
                     />
-                    <div className="grid grid-cols-2 gap-2">
-                      <Input
-                        type="number"
-                        step="0.01"
-                        placeholder="Price"
-                        value={newItem.stores[0].price || ''}
-                        onChange={(e) => {
-                          const newStores = [...newItem.stores];
-                          newStores[0] = {...newStores[0], price: parseFloat(e.target.value) || 0};
-                          setNewItem({...newItem, stores: newStores});
-                        }}
-                      />
-                      <Input
-                        type="date"
-                        value={newItem.stores[0].date}
-                        onChange={(e) => {
-                          const newStores = [...newItem.stores];
-                          newStores[0] = {...newStores[0], date: e.target.value};
-                          setNewItem({...newItem, stores: newStores});
-                        }}
-                      />
-                    </div>
+                  </div>
+                  <div>
+                    <Label htmlFor="newDate">Date</Label>
+                    <Input
+                      id="newDate"
+                      type="date"
+                      value={newItem.date}
+                      onChange={(e) => setNewItem({...newItem, date: e.target.value})}
+                    />
                   </div>
                 </div>
                 
                 <div className="flex gap-2 mt-6">
                   <Button 
                     onClick={async () => {
-                      if (!user || !newItem.name || !newItem.stores[0].store) {
+                      if (!user || !newItem.name || !newItem.store) {
                         showToast('Please fill in all required fields', 'error');
                         return;
                       }
@@ -666,8 +649,14 @@ export default function TrackerPage() {
                       try {
                         const { error } = await database.priceTracker.add(user.id, {
                           name: newItem.name,
-                          stores: newItem.stores.filter(s => s.store && s.price > 0),
-                          target_price: newItem.target_price,
+                          stores: [{
+                            store: newItem.store,
+                            price: newItem.price,
+                            quantity: newItem.quantity,
+                            date: newItem.date,
+                            receipt_image: newItem.receipt_image
+                          }],
+                          target_price: null,
                           unit: newItem.unit,
                           emoji: newItem.emoji
                         });
@@ -679,21 +668,37 @@ export default function TrackerPage() {
                         
                         // Reload price history
                         const { data: priceData } = await database.priceTracker.getAll(user.id);
-                        setPriceHistory(priceData?.map(item => ({
-                          id: item.id,
-                          name: item.name,
-                          stores: item.stores || [],
-                          target_price: item.target_price,
-                          unit: item.unit,
-                          emoji: item.emoji || '🛒'
-                        })) || []);
+                        
+                        // Transform the data from multi-store format to single-entry format
+                        const formattedData: PriceEntry[] = [];
+                        
+                        priceData?.forEach(item => {
+                          if (item.stores && Array.isArray(item.stores)) {
+                            // Create a separate entry for each store price
+                            item.stores.forEach((store: any) => {
+                              formattedData.push({
+                                id: `${item.id}-${store.store}-${store.date}`,
+                                name: item.name,
+                                store: store.store,
+                                price: store.price,
+                                quantity: store.quantity || 1,
+                                unit: item.unit,
+                                emoji: item.emoji || '🛒',
+                                date: store.date,
+                                receipt_image: store.receipt_image || null
+                              });
+                            });
+                          }
+                        });
+                        
+                        setPriceHistory(formattedData);
                       } catch (error) {
                         console.error('Error adding item:', error);
                         showToast('Failed to add item', 'error');
                       }
                     }} 
                     className="flex-1"
-                    disabled={!newItem.name || !newItem.stores[0].store}
+                    disabled={!newItem.name || !newItem.store}
                   >
                     Add Item
                   </Button>

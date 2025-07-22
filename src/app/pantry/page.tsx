@@ -183,6 +183,24 @@ export default function PantryPage() {
         const { data: items, error } = await database.pantry.getAll(user.id);
         if (error) throw error;
         
+        // Load existing stores from price tracker
+        try {
+          const { data: priceData } = await database.priceTracker.getAll(user.id);
+          if (priceData) {
+            const stores = new Set<string>();
+            priceData.forEach((item: any) => {
+              if (item.stores && Array.isArray(item.stores)) {
+                item.stores.forEach((store: any) => {
+                  if (store.store) stores.add(store.store);
+                });
+              }
+            });
+            setExistingStores(Array.from(stores).sort());
+          }
+        } catch (error) {
+          console.error('Failed to load stores:', error);
+        }
+        
         // If user has no items, add some default items
         if (!items || items.length === 0) {
           const isMetric = profile?.unit_system === 'metric';
@@ -577,6 +595,9 @@ export default function PantryPage() {
         receiptImage: dataUrl
       });
       
+      // Set the selected store from extracted merchant
+      setSelectedStore(extractData.merchant || '');
+      
       // Generate emojis in background for new items
       setTimeout(() => {
         parsedItems.forEach(async (item) => {
@@ -718,7 +739,7 @@ export default function PantryPage() {
             );
             
             const newStoreEntry = {
-              store: tempReceiptData.merchant,
+              store: selectedStore || tempReceiptData.merchant || 'Unknown Store',
               price: priceItem.price,
               total_price: priceItem.totalPrice,
               quantity: priceItem.quantity,
@@ -1436,6 +1457,28 @@ export default function PantryPage() {
                 </DialogDescription>
               </DialogHeader>
               <div className="space-y-6">
+                {/* Store Selection */}
+                {tempReceiptData && (
+                  <div>
+                    <Label htmlFor="store-select">Store Name</Label>
+                    <div className="flex gap-2 mt-1">
+                      <Input
+                        id="store-select"
+                        value={selectedStore || tempReceiptData.merchant || ''}
+                        onChange={(e) => setSelectedStore(e.target.value)}
+                        placeholder="Enter store name"
+                        list="store-list"
+                        className="flex-1"
+                      />
+                      <datalist id="store-list">
+                        {existingStores.map(store => (
+                          <option key={store} value={store} />
+                        ))}
+                      </datalist>
+                    </div>
+                  </div>
+                )}
+                
                 {bulkItems.new.length > 0 && (
                   <div>
                     <h3 className="font-semibold mb-3">New Items</h3>
