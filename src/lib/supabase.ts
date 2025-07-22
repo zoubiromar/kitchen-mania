@@ -85,6 +85,7 @@ export interface Database {
           rating: number | null
           image_url: string | null
           unit_system: 'metric' | 'imperial'
+          tags: string[] | null
           created_at: string
           updated_at: string
         }
@@ -102,6 +103,7 @@ export interface Database {
           rating?: number | null
           image_url?: string | null
           unit_system?: 'metric' | 'imperial'
+          tags?: string[] | null
           created_at?: string
           updated_at?: string
         }
@@ -119,6 +121,7 @@ export interface Database {
           rating?: number | null
           image_url?: string | null
           unit_system?: 'metric' | 'imperial'
+          tags?: string[] | null
           created_at?: string
           updated_at?: string
         }

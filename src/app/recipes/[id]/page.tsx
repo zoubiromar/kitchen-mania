@@ -106,26 +106,37 @@ export default function RecipeDetailPage() {
     }
   };
 
-  const addTag = () => {
-    if (!recipe || !newTag.trim()) return;
+  const addTag = async () => {
+    if (!recipe || !newTag.trim() || !user) return;
     
     const updatedTags = [...(recipe.tags || []), newTag.trim()];
-    const updatedRecipe = { ...recipe, tags: updatedTags };
-    setRecipe(updatedRecipe);
-    setNewTag('');
     
-    // Note: Tags are not yet implemented in the database schema
-    // This would need a schema update to persist
+    try {
+      const { error } = await database.recipes.update(recipe.id, user.id, { tags: updatedTags });
+      if (error) throw error;
+      
+      const updatedRecipe = { ...recipe, tags: updatedTags };
+      setRecipe(updatedRecipe);
+      setNewTag('');
+    } catch (error) {
+      console.error('Error adding tag:', error);
+    }
   };
 
-  const removeTag = (tagToRemove: string) => {
-    if (!recipe) return;
+  const removeTag = async (tagToRemove: string) => {
+    if (!recipe || !user) return;
     
     const updatedTags = recipe.tags?.filter(tag => tag !== tagToRemove) || [];
-    const updatedRecipe = { ...recipe, tags: updatedTags };
-    setRecipe(updatedRecipe);
     
-    // Note: Tags are not yet implemented in the database schema
+    try {
+      const { error } = await database.recipes.update(recipe.id, user.id, { tags: updatedTags });
+      if (error) throw error;
+      
+      const updatedRecipe = { ...recipe, tags: updatedTags };
+      setRecipe(updatedRecipe);
+    } catch (error) {
+      console.error('Error removing tag:', error);
+    }
   };
 
   const startEditing = () => {
@@ -164,7 +175,8 @@ export default function RecipeDetailPage() {
         instructions: editingRecipe.instructions,
         servings: editingRecipe.servings ? parseInt(editingRecipe.servings.replace(/\D/g, '')) : undefined,
         prep_time: editingRecipe.prepTime ? parseInt(editingRecipe.prepTime.replace(/\D/g, '')) : null,
-        image_url: editingRecipe.image
+        image_url: editingRecipe.image,
+        tags: editingRecipe.tags || []
       };
       
       const { error } = await database.recipes.update(recipe.id, user.id, updates);
