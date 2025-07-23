@@ -178,7 +178,7 @@ export default function RecipesPage() {
 
   const StarRating = ({ rating, recipeId }: { rating: number; recipeId: string }) => {
     return (
-      <div className="flex gap-1">
+      <div className="flex gap-0.5">
         {[1, 2, 3, 4, 5].map((star) => (
           <button
             key={star}
@@ -186,7 +186,7 @@ export default function RecipesPage() {
               e.preventDefault();
               updateRating(recipeId, star);
             }}
-            className="text-xl hover:scale-110 transition-transform"
+            className="text-base hover:scale-110 transition-transform"
           >
             {star <= (rating || 0) ? '⭐' : '☆'}
           </button>
@@ -274,7 +274,7 @@ export default function RecipesPage() {
             <div key={recipe.id} className="relative">
               <Link href={`/recipes/${recipe.id}`}>
                 <Card className="h-full hover:shadow-lg transition-shadow cursor-pointer overflow-hidden">
-                  <div className="h-48 relative overflow-hidden">
+                  <div className="h-44 relative overflow-hidden">
                     {recipe.image ? (
                       <img
                         src={recipe.image}
@@ -291,17 +291,17 @@ export default function RecipesPage() {
                       </div>
                     )}
                   </div>
-                  <CardHeader className="p-3 pb-1">
+                  <CardHeader className="p-2.5 pb-0.5">
                     <CardTitle className="line-clamp-1 text-base">{recipe.title}</CardTitle>
                   </CardHeader>
-                  <CardContent className="p-3 pt-0 space-y-1">
+                  <CardContent className="p-2.5 pt-0 space-y-0.5">
                     <StarRating rating={recipe.rating || 0} recipeId={recipe.id} />
                     {recipe.tags && recipe.tags.length > 0 && (
-                      <div className="flex flex-wrap gap-1 pt-1">
+                      <div className="flex flex-wrap gap-0.5 pt-0.5">
                         {recipe.tags.slice(0, 3).map(tag => (
                           <span
                             key={tag}
-                            className="text-xs bg-gray-100 text-gray-700 px-1.5 py-0.5 rounded-full"
+                            className="text-xs bg-gray-100 text-gray-700 px-1.5 py-0 rounded-full"
                           >
                             {tag}
                           </span>
@@ -313,7 +313,7 @@ export default function RecipesPage() {
                         )}
                       </div>
                     )}
-                    <CardDescription className="text-xs pt-1">
+                    <CardDescription className="text-xs pt-0.5">
                       {recipe.servings && `${recipe.servings} • `}
                       {recipe.prepTime}
                     </CardDescription>

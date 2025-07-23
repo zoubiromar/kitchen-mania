@@ -470,13 +470,13 @@ export default function RecipeDetailPage() {
         {/* Edit Recipe Dialog */}
         {editingRecipe && (
           <Dialog open={!!editingRecipe} onOpenChange={() => setEditingRecipe(null)}>
-            <DialogContent className="max-w-5xl max-h-[90vh] overflow-y-auto" aria-describedby="edit-recipe-description">
+            <DialogContent className="max-w-5xl max-h-[90vh] overflow-y-auto" aria-describedby="edit-recipe-dialog-description">
               <DialogHeader>
                 <DialogTitle>Edit Recipe</DialogTitle>
-                <p id="edit-recipe-description" className="sr-only">
-                  Edit your recipe details including title, ingredients, instructions, and image
-                </p>
               </DialogHeader>
+              <div id="edit-recipe-dialog-description" className="sr-only">
+                Edit your recipe details including title, ingredients, instructions, and image
+              </div>
               <div className="space-y-6 mt-6">
                 {/* Basic Information */}
                 <div className="space-y-4">
@@ -568,156 +568,151 @@ export default function RecipeDetailPage() {
                   </div>
                 </div>
 
-                {/* Recipe Details Section */}
-                <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-
-                  {/* Ingredients */}
-                  <div>
-                    <Label>Ingredients</Label>
-                    <div className="space-y-2 mt-2">
-                      <div className="grid grid-cols-12 gap-2 text-xs font-semibold">
-                        <div className="col-span-7">Name</div>
-                        <div className="col-span-2 text-center">Qty</div>
-                        <div className="col-span-2 text-center">Unit</div>
-                        <div className="col-span-1"></div>
-                      </div>
-                      {editingRecipe.ingredients && editingRecipe.ingredients.map((ingredient, index) => {
-                        const ing = typeof ingredient === 'string' 
-                          ? { name: ingredient, quantity: 1, unit: 'pcs' }
-                          : ingredient;
-                        return (
-                          <div key={index} className="grid grid-cols-12 gap-2">
-                            <Input
-                              className="col-span-7"
-                              value={ing.name}
-                              onChange={(e: React.ChangeEvent<HTMLInputElement>) => {
-                                const newIngredients = [...editingRecipe.ingredients];
-                                newIngredients[index] = {
-                                  ...ing,
-                                  name: e.target.value
-                                };
-                                setEditingRecipe({...editingRecipe, ingredients: newIngredients});
-                              }}
-                              placeholder="Ingredient name"
-                            />
-                            <Input
-                              className="col-span-2"
-                              type="number"
-                              step="0.1"
-                              value={ing.quantity}
-                              onChange={(e: React.ChangeEvent<HTMLInputElement>) => {
-                                const newIngredients = [...editingRecipe.ingredients];
-                                newIngredients[index] = {
-                                  ...ing,
-                                  quantity: parseFloat(e.target.value) || 0
-                                };
-                                setEditingRecipe({...editingRecipe, ingredients: newIngredients});
-                              }}
-                            />
-                            <Select
-                              value={ing.unit}
-                              onValueChange={(value: string) => {
-                                const newIngredients = [...editingRecipe.ingredients];
-                                newIngredients[index] = {
-                                  ...ing,
-                                  unit: value
-                                };
-                                setEditingRecipe({...editingRecipe, ingredients: newIngredients});
-                              }}
-                            >
-                              <SelectTrigger className="col-span-2">
-                                <SelectValue />
-                              </SelectTrigger>
-                              <SelectContent>
-                                {['pcs', 'cups', 'tbsp', 'tsp', 'lbs', 'kg', 'g', 'oz', 'ml', 'l'].map(unit => (
-                                  <SelectItem key={unit} value={unit}>
-                                    {unit}
-                                  </SelectItem>
-                                ))}
-                              </SelectContent>
-                            </Select>
-                            {editingRecipe.ingredients.length > 1 && (
-                              <Button
-                                className="col-span-1"
-                                variant="outline"
-                                size="sm"
-                                onClick={() => {
-                                  const newIngredients = editingRecipe.ingredients.filter((_, i) => i !== index);
-                                  setEditingRecipe({...editingRecipe, ingredients: newIngredients});
-                                }}
-                              >
-                                <Minus className="w-4 h-4" />
-                              </Button>
-                            )}
-                          </div>
-                        );
-                      })}
-                      <Button
-                        variant="outline"
-                        onClick={() => {
-                          setEditingRecipe({
-                            ...editingRecipe,
-                            ingredients: [...(editingRecipe.ingredients || []), { name: '', quantity: 1, unit: 'pcs' }]
-                          });
-                        }}
-                      >
-                        <Plus className="w-4 h-4 mr-2" />
-                        Add Ingredient
-                      </Button>
+                {/* Ingredients Section */}
+                <div>
+                  <Label>Ingredients</Label>
+                  <div className="space-y-2 mt-2">
+                    <div className="grid grid-cols-12 gap-2 text-xs font-semibold">
+                      <div className="col-span-7">Name</div>
+                      <div className="col-span-2 text-center">Qty</div>
+                      <div className="col-span-2 text-center">Unit</div>
+                      <div className="col-span-1"></div>
                     </div>
-                  </div>
-
-                  {/* Instructions */}
-                  <div>
-                    <Label>Instructions</Label>
-                    <div className="space-y-2 mt-2">
-                      {editingRecipe.instructions && editingRecipe.instructions.map((instruction, index) => (
-                        <div key={index} className="flex gap-2">
-                          <div className="flex-shrink-0 w-6 h-6 bg-blue-600 text-white text-xs rounded-full flex items-center justify-center mt-3">
-                            {index + 1}
-                          </div>
-                          <Textarea
-                            value={instruction}
-                            onChange={(e: React.ChangeEvent<HTMLTextAreaElement>) => {
-                              const newInstructions = [...editingRecipe.instructions];
-                              newInstructions[index] = e.target.value;
-                              setEditingRecipe({...editingRecipe, instructions: newInstructions});
+                    {editingRecipe.ingredients && editingRecipe.ingredients.map((ingredient, index) => {
+                      const ing = typeof ingredient === 'string' 
+                        ? { name: ingredient, quantity: 1, unit: 'pcs' }
+                        : ingredient;
+                      return (
+                        <div key={index} className="grid grid-cols-12 gap-2">
+                          <Input
+                            className="col-span-7"
+                            value={ing.name}
+                            onChange={(e: React.ChangeEvent<HTMLInputElement>) => {
+                              const newIngredients = [...editingRecipe.ingredients];
+                              newIngredients[index] = {
+                                ...ing,
+                                name: e.target.value
+                              };
+                              setEditingRecipe({...editingRecipe, ingredients: newIngredients});
                             }}
-                            rows={3}
-                            className="flex-1"
+                            placeholder="Ingredient name"
                           />
-                          {editingRecipe.instructions.length > 1 && (
+                          <Input
+                            className="col-span-2"
+                            type="number"
+                            step="0.1"
+                            value={ing.quantity}
+                            onChange={(e: React.ChangeEvent<HTMLInputElement>) => {
+                              const newIngredients = [...editingRecipe.ingredients];
+                              newIngredients[index] = {
+                                ...ing,
+                                quantity: parseFloat(e.target.value) || 0
+                              };
+                              setEditingRecipe({...editingRecipe, ingredients: newIngredients});
+                            }}
+                          />
+                          <Select
+                            value={ing.unit}
+                            onValueChange={(value: string) => {
+                              const newIngredients = [...editingRecipe.ingredients];
+                              newIngredients[index] = {
+                                ...ing,
+                                unit: value
+                              };
+                              setEditingRecipe({...editingRecipe, ingredients: newIngredients});
+                            }}
+                          >
+                            <SelectTrigger className="col-span-2">
+                              <SelectValue />
+                            </SelectTrigger>
+                            <SelectContent>
+                              {['pcs', 'cups', 'tbsp', 'tsp', 'lbs', 'kg', 'g', 'oz', 'ml', 'l'].map(unit => (
+                                <SelectItem key={unit} value={unit}>
+                                  {unit}
+                                </SelectItem>
+                              ))}
+                            </SelectContent>
+                          </Select>
+                          {editingRecipe.ingredients.length > 1 && (
                             <Button
+                              className="col-span-1"
                               variant="outline"
                               size="sm"
                               onClick={() => {
-                                const newInstructions = editingRecipe.instructions.filter((_, i) => i !== index);
-                                setEditingRecipe({...editingRecipe, instructions: newInstructions});
+                                const newIngredients = editingRecipe.ingredients.filter((_, i) => i !== index);
+                                setEditingRecipe({...editingRecipe, ingredients: newIngredients});
                               }}
-                              className="mt-3"
                             >
                               <Minus className="w-4 h-4" />
                             </Button>
                           )}
                         </div>
-                      ))}
-                      <Button
-                        variant="outline"
-                        onClick={() => {
-                          setEditingRecipe({
-                            ...editingRecipe,
-                            instructions: [...(editingRecipe.instructions || []), '']
-                          });
-                        }}
-                      >
-                        <Plus className="w-4 h-4 mr-2" />
-                        Add Instruction
-                      </Button>
-                    </div>
+                      );
+                    })}
+                    <Button
+                      variant="outline"
+                      onClick={() => {
+                        setEditingRecipe({
+                          ...editingRecipe,
+                          ingredients: [...(editingRecipe.ingredients || []), { name: '', quantity: 1, unit: 'pcs' }]
+                        });
+                      }}
+                    >
+                      <Plus className="w-4 h-4 mr-2" />
+                      Add Ingredient
+                    </Button>
                   </div>
-
-
                 </div>
+
+                {/* Instructions Section */}
+                <div>
+                  <Label>Instructions</Label>
+                  <div className="space-y-2 mt-2">
+                    {editingRecipe.instructions && editingRecipe.instructions.map((instruction, index) => (
+                      <div key={index} className="flex gap-2">
+                        <div className="flex-shrink-0 w-6 h-6 bg-blue-600 text-white text-xs rounded-full flex items-center justify-center mt-3">
+                          {index + 1}
+                        </div>
+                        <Textarea
+                          value={instruction}
+                          onChange={(e: React.ChangeEvent<HTMLTextAreaElement>) => {
+                            const newInstructions = [...editingRecipe.instructions];
+                            newInstructions[index] = e.target.value;
+                            setEditingRecipe({...editingRecipe, instructions: newInstructions});
+                          }}
+                          rows={3}
+                          className="flex-1"
+                        />
+                        {editingRecipe.instructions.length > 1 && (
+                          <Button
+                            variant="outline"
+                            size="sm"
+                            onClick={() => {
+                              const newInstructions = editingRecipe.instructions.filter((_, i) => i !== index);
+                              setEditingRecipe({...editingRecipe, instructions: newInstructions});
+                            }}
+                            className="mt-3"
+                          >
+                            <Minus className="w-4 h-4" />
+                          </Button>
+                        )}
+                      </div>
+                    ))}
+                    <Button
+                      variant="outline"
+                      onClick={() => {
+                        setEditingRecipe({
+                          ...editingRecipe,
+                          instructions: [...(editingRecipe.instructions || []), '']
+                        });
+                      }}
+                    >
+                      <Plus className="w-4 h-4 mr-2" />
+                      Add Instruction
+                    </Button>
+                  </div>
+                </div>
+
               </div>
 
               <div className="flex gap-2 mt-6">
