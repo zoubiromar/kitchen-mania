@@ -156,7 +156,7 @@ export default function TestImageStoragePage() {
             <p>3. Look for error messages in the debug output above</p>
             <p>4. Common issues:</p>
             <ul className="list-disc ml-6">
-              <li>Bucket doesn't exist</li>
+              <li>Bucket doesn&apos;t exist</li>
               <li>Missing storage policies</li>
               <li>Environment variables not set</li>
             </ul>
