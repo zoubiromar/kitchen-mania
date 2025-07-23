@@ -4,6 +4,7 @@ export interface ImageUploadResult {
   success: boolean
   imageUrl?: string
   error?: string
+  details?: any
 }
 
 /**
@@ -15,7 +16,7 @@ export async function downloadAndStoreImage(
   bucket: string = 'recipe-images'
 ): Promise<ImageUploadResult> {
   try {
-    console.log(`Attempting to download image from: ${imageUrl}`);
+    console.log(`[Server] Attempting to download image from: ${imageUrl}`);
     
     // Download the image
     const response = await fetch(imageUrl)
@@ -24,7 +25,7 @@ export async function downloadAndStoreImage(
     }
 
     const blob = await response.blob()
-    console.log(`Downloaded image: ${blob.size} bytes, type: ${blob.type}`);
+    console.log(`[Server] Downloaded image: ${blob.size} bytes, type: ${blob.type}`);
     
     // Validate blob
     if (blob.size === 0) {
@@ -36,27 +37,36 @@ export async function downloadAndStoreImage(
     const fileExtension = blob.type.split('/')[1] || 'png'
     const uniqueFileName = `${fileName}_${timestamp}.${fileExtension}`
     
-    console.log(`Uploading to Supabase: ${uniqueFileName} in bucket: ${bucket}`);
+    console.log(`[Server] Uploading to Supabase: ${uniqueFileName} in bucket: ${bucket}`);
 
-    // Upload to Supabase Storage
+    // Upload to Supabase Storage - using upsert: true like avatar upload
     const { data, error } = await supabase.storage
       .from(bucket)
       .upload(uniqueFileName, blob, {
         contentType: blob.type,
-        upsert: false,
-        cacheControl: '3600' // Cache for 1 hour
+        upsert: true, // Changed to true to match avatar upload
+        cacheControl: '3600'
       })
 
     if (error) {
-      console.error('Supabase storage error:', error)
+      console.error('[Server] Supabase storage error:', error)
       // Check if it's a bucket not found error
       if (error.message?.includes('not found')) {
         return { 
           success: false, 
-          error: `Storage bucket "${bucket}" not found. Please create it in Supabase Dashboard.` 
+          error: `Storage bucket "${bucket}" not found. Please create it in Supabase Dashboard.`,
+          details: error 
         }
       }
-      return { success: false, error: error.message }
+      // Check for policy errors
+      if (error.message?.includes('policy') || error.message?.includes('row-level security')) {
+        return { 
+          success: false, 
+          error: `Storage policy error. Please check bucket policies for "${bucket}".`,
+          details: error 
+        }
+      }
+      return { success: false, error: error.message, details: error }
     }
 
     // Get public URL
@@ -64,7 +74,7 @@ export async function downloadAndStoreImage(
       .from(bucket)
       .getPublicUrl(data.path)
     
-    console.log('Image stored successfully at:', urlData.publicUrl);
+    console.log('[Server] Image stored successfully at:', urlData.publicUrl);
 
     return {
       success: true,
@@ -72,10 +82,11 @@ export async function downloadAndStoreImage(
     }
 
   } catch (error) {
-    console.error('Error storing image:', error)
+    console.error('[Server] Error storing image:', error)
     return {
       success: false,
-      error: error instanceof Error ? error.message : 'Unknown error occurred while storing image'
+      error: error instanceof Error ? error.message : 'Unknown error occurred while storing image',
+      details: error
     }
   }
 }
@@ -98,21 +109,21 @@ export async function deleteStoredImage(
     }
 
     const filePath = pathMatch[1]
-    console.log(`Deleting image: ${filePath} from bucket: ${bucket}`);
+    console.log(`[Server] Deleting image: ${filePath} from bucket: ${bucket}`);
 
     const { error } = await supabase.storage
       .from(bucket)
       .remove([filePath])
 
     if (error) {
-      console.error('Error deleting image:', error)
+      console.error('[Server] Error deleting image:', error)
       return false
     }
 
-    console.log('Image deleted successfully');
+    console.log('[Server] Image deleted successfully');
     return true
   } catch (error) {
-    console.error('Error deleting image:', error)
+    console.error('[Server] Error deleting image:', error)
     return false
   }
 }
@@ -130,32 +141,40 @@ export async function uploadImageFile(
     const fileExtension = file.type.split('/')[1] || 'png'
     const uniqueFileName = `${fileName}_${timestamp}.${fileExtension}`
 
-    console.log(`Uploading file: ${uniqueFileName} to bucket: ${bucket}`);
+    console.log(`[Client] Uploading file: ${uniqueFileName} to bucket: ${bucket}`);
 
     const { data, error } = await supabase.storage
       .from(bucket)
       .upload(uniqueFileName, file, {
         contentType: file.type,
-        upsert: false,
+        upsert: true, // Changed to match avatar upload
         cacheControl: '3600'
       })
 
     if (error) {
-      console.error('Supabase upload error:', error);
+      console.error('[Client] Supabase upload error:', error);
       if (error.message?.includes('not found')) {
         return { 
           success: false, 
-          error: `Storage bucket "${bucket}" not found. Please create it in Supabase Dashboard.` 
+          error: `Storage bucket "${bucket}" not found. Please create it in Supabase Dashboard.`,
+          details: error 
         }
       }
-      return { success: false, error: error.message }
+      if (error.message?.includes('policy') || error.message?.includes('row-level security')) {
+        return { 
+          success: false, 
+          error: `Storage policy error. Please check bucket policies for "${bucket}".`,
+          details: error 
+        }
+      }
+      return { success: false, error: error.message, details: error }
     }
 
     const { data: urlData } = supabase.storage
       .from(bucket)
       .getPublicUrl(data.path)
 
-    console.log('File uploaded successfully to:', urlData.publicUrl);
+    console.log('[Client] File uploaded successfully to:', urlData.publicUrl);
 
     return {
       success: true,
@@ -164,7 +183,8 @@ export async function uploadImageFile(
   } catch (error) {
     return {
       success: false,
-      error: error instanceof Error ? error.message : 'Unknown error occurred during upload'
+      error: error instanceof Error ? error.message : 'Unknown error occurred during upload',
+      details: error
     }
   }
 }

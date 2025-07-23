@@ -24,7 +24,10 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({
         imageUrl: `/api/placeholder/400/300?text=${encodeURIComponent(title)}`,
         isStored: false,
-        warning: 'No OpenAI API key configured'
+        warning: 'No OpenAI API key configured',
+        debug: {
+          step: 'no-api-key'
+        }
       });
     }
 
@@ -45,34 +48,45 @@ export async function POST(request: NextRequest) {
       const dalleImageUrl = response.data?.[0]?.url;
       
       if (dalleImageUrl) {
-        console.log('DALL-E image generated:', dalleImageUrl);
+        console.log('[Server] DALL-E image generated:', dalleImageUrl);
         
         // Download and store the image permanently
         const fileName = title.replace(/[^a-zA-Z0-9]/g, '_').toLowerCase();
         const storageResult = await downloadAndStoreImage(dalleImageUrl, fileName);
         
         if (storageResult.success && storageResult.imageUrl) {
-          console.log('Image stored successfully:', storageResult.imageUrl);
+          console.log('[Server] Image stored successfully:', storageResult.imageUrl);
           return NextResponse.json({ 
             imageUrl: storageResult.imageUrl,
             isStored: true,
-            originalUrl: dalleImageUrl
+            originalUrl: dalleImageUrl,
+            debug: {
+              step: 'storage-success',
+              fileName: fileName,
+              storageUrl: storageResult.imageUrl
+            }
           });
         } else {
-          console.error('Failed to store image:', storageResult.error);
+          console.error('[Server] Failed to store image:', storageResult.error);
           // Still return the DALL-E URL as fallback
           return NextResponse.json({ 
             imageUrl: dalleImageUrl,
             isStored: false,
             storageError: storageResult.error,
-            warning: 'Image will expire in 2 hours. Storage failed: ' + storageResult.error
+            storageDetails: storageResult.details,
+            warning: 'Image will expire in 2 hours. Storage failed: ' + storageResult.error,
+            debug: {
+              step: 'storage-failed',
+              error: storageResult.error,
+              details: storageResult.details
+            }
           });
         }
       } else {
         throw new Error('No image URL in response');
       }
     } catch (dalleError: any) {
-      console.error('DALL-E 3 error:', dalleError);
+      console.error('[Server] DALL-E 3 error:', dalleError);
       
       // Try with DALL-E 2 if DALL-E 3 fails
       try {
@@ -86,7 +100,7 @@ export async function POST(request: NextRequest) {
         const dalle2ImageUrl = response.data?.[0]?.url;
         
         if (dalle2ImageUrl) {
-          console.log('DALL-E 2 image generated:', dalle2ImageUrl);
+          console.log('[Server] DALL-E 2 image generated:', dalle2ImageUrl);
           
           // Download and store the DALL-E 2 image
           const fileName = title.replace(/[^a-zA-Z0-9]/g, '_').toLowerCase();
@@ -97,7 +111,12 @@ export async function POST(request: NextRequest) {
               imageUrl: storageResult.imageUrl,
               isStored: true,
               model: 'dall-e-2',
-              originalUrl: dalle2ImageUrl
+              originalUrl: dalle2ImageUrl,
+              debug: {
+                step: 'dalle2-storage-success',
+                fileName: fileName,
+                storageUrl: storageResult.imageUrl
+              }
             });
           } else {
             // Fallback to original URL
@@ -105,8 +124,14 @@ export async function POST(request: NextRequest) {
               imageUrl: dalle2ImageUrl,
               isStored: false,
               storageError: storageResult.error,
+              storageDetails: storageResult.details,
               model: 'dall-e-2',
-              warning: 'Image will expire in 2 hours. Storage failed: ' + storageResult.error
+              warning: 'Image will expire in 2 hours. Storage failed: ' + storageResult.error,
+              debug: {
+                step: 'dalle2-storage-failed',
+                error: storageResult.error,
+                details: storageResult.details
+              }
             });
           }
         }
@@ -114,16 +139,19 @@ export async function POST(request: NextRequest) {
         return NextResponse.json({
           imageUrl: `/api/placeholder/400/300?text=${encodeURIComponent(title)}`,
           isStored: false,
-          error: 'Failed to generate image with both DALL-E models'
+          error: 'Failed to generate image with both DALL-E models',
+          debug: {
+            step: 'all-models-failed'
+          }
         });
-      } catch (dalle2Error) {
-        console.error('DALL-E 2 error:', dalle2Error);
+      } catch (dalle2Error: any) {
+        console.error('[Server] DALL-E 2 error:', dalle2Error);
         throw dalle2Error;
       }
     }
 
   } catch (error: any) {
-    console.error('Error generating recipe image:', error);
+    console.error('[Server] Error generating recipe image:', error);
     
     const body = await request.json().catch(() => ({ title: 'Recipe' }));
     const { title } = body;
@@ -132,7 +160,12 @@ export async function POST(request: NextRequest) {
     return NextResponse.json({
       imageUrl: `/api/placeholder/400/300?text=${encodeURIComponent(title || 'Recipe')}`,
       isStored: false,
-      error: error.message || 'Unknown error occurred'
+      error: error.message || 'Unknown error occurred',
+      debug: {
+        step: 'error-catch',
+        error: error.message,
+        stack: error.stack
+      }
     });
   }
 } 
