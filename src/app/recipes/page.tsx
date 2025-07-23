@@ -274,7 +274,7 @@ export default function RecipesPage() {
             <div key={recipe.id} className="relative">
               <Link href={`/recipes/${recipe.id}`}>
                 <Card className="h-full hover:shadow-lg transition-shadow cursor-pointer overflow-hidden">
-                  <div className="h-44 relative overflow-hidden">
+                  <div className="h-36 relative overflow-hidden">
                     {recipe.image ? (
                       <img
                         src={recipe.image}
@@ -291,17 +291,17 @@ export default function RecipesPage() {
                       </div>
                     )}
                   </div>
-                  <CardHeader className="p-2.5 pb-0">
+                  <CardHeader className="p-2 pb-0">
                     <CardTitle className="line-clamp-1 text-base">{recipe.title}</CardTitle>
                   </CardHeader>
-                  <CardContent className="p-2.5 pt-1 space-y-1">
+                  <CardContent className="p-2 pt-0.5 space-y-0.5">
                     <StarRating rating={recipe.rating || 0} recipeId={recipe.id} />
                     {recipe.tags && recipe.tags.length > 0 && (
                       <div className="flex flex-wrap gap-1">
                         {recipe.tags.slice(0, 3).map(tag => (
                           <span
                             key={tag}
-                            className="text-xs bg-gray-100 text-gray-700 px-1.5 py-0.5 rounded-full"
+                            className="text-xs bg-gray-100 text-gray-700 px-1 py-0 rounded-full"
                           >
                             {tag}
                           </span>
