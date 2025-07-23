@@ -42,6 +42,9 @@ next-env.d.ts
 # Database fix scripts with sensitive data
 fix-database-automated.js
 *-with-key.js
+*_RLS*.sql
+DISABLE_*.sql
+FIX_*.sql
 
 # IDE
 .idea/
