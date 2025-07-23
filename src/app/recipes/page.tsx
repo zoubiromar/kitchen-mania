@@ -274,7 +274,7 @@ export default function RecipesPage() {
             <div key={recipe.id} className="relative">
               <Link href={`/recipes/${recipe.id}`}>
                 <Card className="h-full hover:shadow-lg transition-shadow cursor-pointer overflow-hidden">
-                  <div className="h-56 relative overflow-hidden">
+                  <div className="h-48 relative overflow-hidden">
                     {recipe.image ? (
                       <img
                         src={recipe.image}
@@ -291,16 +291,13 @@ export default function RecipesPage() {
                       </div>
                     )}
                   </div>
-                  <CardHeader className="p-3 pb-1">
+                  <CardHeader className="p-3 pb-0">
                     <CardTitle className="line-clamp-1 text-base">{recipe.title}</CardTitle>
-                    <CardDescription className="text-xs">
-                      {recipe.servings && `${recipe.servings} • `}
-                      {recipe.prepTime}
-                    </CardDescription>
                   </CardHeader>
-                  <CardContent className="p-3 pt-1 space-y-2">
+                  <CardContent className="p-3 pt-1 space-y-1.5">
+                    <StarRating rating={recipe.rating || 0} recipeId={recipe.id} />
                     {recipe.tags && recipe.tags.length > 0 && (
-                      <div className="flex flex-wrap gap-1">
+                      <div className="flex flex-wrap gap-1 my-1">
                         {recipe.tags.slice(0, 3).map(tag => (
                           <span
                             key={tag}
@@ -316,7 +313,10 @@ export default function RecipesPage() {
                         )}
                       </div>
                     )}
-                    <StarRating rating={recipe.rating || 0} recipeId={recipe.id} />
+                    <CardDescription className="text-xs">
+                      {recipe.servings && `${recipe.servings} • `}
+                      {recipe.prepTime}
+                    </CardDescription>
                   </CardContent>
                 </Card>
               </Link>
