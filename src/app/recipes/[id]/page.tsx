@@ -2,7 +2,6 @@
 
 import { useState, useEffect } from 'react';
 import { useParams, useRouter } from 'next/navigation';
-import Image from 'next/image';
 import Link from 'next/link';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -16,7 +15,6 @@ import { ArrowLeft, Clock, Users, Tag, Pencil, Sparkles, Plus, Minus } from 'luc
 import { useAuth } from '@/components/AuthContext';
 import { database } from '@/lib/database';
 import { ProtectedRoute } from '@/components/AuthContext';
-import { Toast, useToast } from '@/components/toast';
 import { deleteStoredImage, isStoredImage } from '@/lib/imageStorage';
 
 interface RecipeIngredient {
@@ -472,9 +470,12 @@ export default function RecipeDetailPage() {
         {/* Edit Recipe Dialog */}
         {editingRecipe && (
           <Dialog open={!!editingRecipe} onOpenChange={() => setEditingRecipe(null)}>
-            <DialogContent className="max-w-5xl max-h-[90vh] overflow-y-auto">
+            <DialogContent className="max-w-5xl max-h-[90vh] overflow-y-auto" aria-describedby="edit-recipe-description">
               <DialogHeader>
                 <DialogTitle>Edit Recipe</DialogTitle>
+                <p id="edit-recipe-description" className="sr-only">
+                  Edit your recipe details including title, ingredients, instructions, and image
+                </p>
               </DialogHeader>
               <div className="space-y-6 mt-6">
                 {/* Basic Information */}
@@ -492,16 +493,19 @@ export default function RecipeDetailPage() {
                   </div>
                   
                   {/* Recipe Image Section - Full Width */}
-                  <div className="space-y-2">
+                  <div>
                     <Label>Recipe Image</Label>
                     <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                       {editingRecipe.image && (
                         <div className="aspect-[4/3] relative overflow-hidden rounded-lg">
-                          <Image
+                          <img
                             src={editingRecipe.image}
                             alt="Recipe preview"
-                            fill
-                            className="object-cover"
+                            className="w-full h-full object-cover"
+                            onError={(e) => {
+                              const target = e.target as HTMLImageElement;
+                              target.src = `/api/placeholder/400/300?text=${encodeURIComponent(editingRecipe.title)}`;
+                            }}
                           />
                         </div>
                       )}
@@ -565,7 +569,7 @@ export default function RecipeDetailPage() {
                 </div>
 
                 {/* Recipe Details Section */}
-                <div className="space-y-4">
+                <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
 
                   {/* Ingredients */}
                   <div>
