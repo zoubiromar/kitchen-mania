@@ -1,4 +1,5 @@
 import { createClient } from '@supabase/supabase-js'
+import { supabase } from './supabase'
 
 // Server-side Supabase client for use in API routes
 // This uses the service role key which bypasses RLS policies
@@ -21,7 +22,6 @@ export function getSupabaseServer() {
   if (!supabaseServer) {
     console.warn('Service role key not found. Using anon client as fallback.')
     // Fallback to regular client if service role key not available
-    const { supabase } = require('./supabase')
     return supabase
   }
   return supabaseServer

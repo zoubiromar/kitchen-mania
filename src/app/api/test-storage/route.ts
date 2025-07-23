@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { getSupabaseServer } from '@/lib/supabase-server';
 
-export async function POST(_request: NextRequest) {
+export async function POST() {
   try {
     // Get server-side client
     const supabase = getSupabaseServer();
@@ -60,7 +60,7 @@ export async function POST(_request: NextRequest) {
       .getPublicUrl(testFileName);
 
     // Test 3: Check if we can access the avatars bucket for comparison
-    const { data: avatarTest, error: avatarError } = await supabase.storage
+    const { error: avatarError } = await supabase.storage
       .from('avatars')
       .list('', { limit: 1 });
 
@@ -84,13 +84,13 @@ export async function POST(_request: NextRequest) {
       }
     });
 
-  } catch (error: any) {
+  } catch (error) {
     console.error('Test storage error:', error);
     return NextResponse.json({
       success: false,
-      error: error.message || 'Unknown error',
+      error: error instanceof Error ? error.message : 'Unknown error',
       test: 'exception',
-      stack: error.stack,
+      stack: error instanceof Error ? error.stack : undefined,
       usingServiceRole: !!process.env.SUPABASE_SERVICE_ROLE_KEY
     });
   }
