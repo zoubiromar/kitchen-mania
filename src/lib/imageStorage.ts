@@ -1,10 +1,26 @@
 import { supabase } from './supabase'
+import { getSupabaseServer } from './supabase-server'
 
 export interface ImageUploadResult {
   success: boolean
   imageUrl?: string
   error?: string
   details?: any
+}
+
+// Helper to determine if we're running on server
+function isServer() {
+  return typeof window === 'undefined'
+}
+
+// Get the appropriate Supabase client based on context
+function getSupabaseClient() {
+  if (isServer()) {
+    // Use server client with service role in API routes
+    return getSupabaseServer()
+  }
+  // Use regular client for browser operations
+  return supabase
 }
 
 /**
@@ -17,6 +33,7 @@ export async function downloadAndStoreImage(
 ): Promise<ImageUploadResult> {
   try {
     console.log(`[Server] Attempting to download image from: ${imageUrl}`);
+    console.log(`[Server] Using service role: ${!!process.env.SUPABASE_SERVICE_ROLE_KEY}`);
     
     // Download the image
     const response = await fetch(imageUrl)
@@ -39,8 +56,11 @@ export async function downloadAndStoreImage(
     
     console.log(`[Server] Uploading to Supabase: ${uniqueFileName} in bucket: ${bucket}`);
 
+    // Get server client for API routes
+    const supabaseClient = getSupabaseClient()
+
     // Upload to Supabase Storage - using upsert: true like avatar upload
-    const { data, error } = await supabase.storage
+    const { data, error } = await supabaseClient.storage
       .from(bucket)
       .upload(uniqueFileName, blob, {
         contentType: blob.type,
@@ -70,7 +90,7 @@ export async function downloadAndStoreImage(
     }
 
     // Get public URL
-    const { data: urlData } = supabase.storage
+    const { data: urlData } = supabaseClient.storage
       .from(bucket)
       .getPublicUrl(data.path)
     
@@ -111,7 +131,10 @@ export async function deleteStoredImage(
     const filePath = pathMatch[1]
     console.log(`[Server] Deleting image: ${filePath} from bucket: ${bucket}`);
 
-    const { error } = await supabase.storage
+    // Get appropriate client
+    const supabaseClient = getSupabaseClient()
+
+    const { error } = await supabaseClient.storage
       .from(bucket)
       .remove([filePath])
 
@@ -143,7 +166,10 @@ export async function uploadImageFile(
 
     console.log(`[Client] Uploading file: ${uniqueFileName} to bucket: ${bucket}`);
 
-    const { data, error } = await supabase.storage
+    // Get appropriate client
+    const supabaseClient = getSupabaseClient()
+
+    const { data, error } = await supabaseClient.storage
       .from(bucket)
       .upload(uniqueFileName, file, {
         contentType: file.type,
@@ -170,7 +196,7 @@ export async function uploadImageFile(
       return { success: false, error: error.message, details: error }
     }
 
-    const { data: urlData } = supabase.storage
+    const { data: urlData } = supabaseClient.storage
       .from(bucket)
       .getPublicUrl(data.path)
 
@@ -190,8 +216,8 @@ export async function uploadImageFile(
 }
 
 /**
- * Checks if an image URL is a stored Supabase image
+ * Checks if a URL is from our Supabase storage
  */
-export function isStoredImage(imageUrl: string, bucket: string = 'recipe-images'): boolean {
-  return imageUrl.includes(`/storage/v1/object/public/${bucket}/`)
+export function isStoredImage(url: string, bucket: string = 'recipe-images'): boolean {
+  return url.includes('/storage/v1/object/public/' + bucket)
 } 

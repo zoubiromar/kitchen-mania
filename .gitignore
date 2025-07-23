@@ -45,6 +45,7 @@ fix-database-automated.js
 *_RLS*.sql
 DISABLE_*.sql
 FIX_*.sql
+ADD_SERVICE_ROLE_KEY.md
 
 # IDE
 .idea/

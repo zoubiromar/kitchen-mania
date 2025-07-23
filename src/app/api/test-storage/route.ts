@@ -1,31 +1,12 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { supabase } from '@/lib/supabase';
+import { getSupabaseServer } from '@/lib/supabase-server';
 
 export async function POST(_request: NextRequest) {
   try {
-    // Test 1: Check if we can access storage
-    const { data: buckets, error: bucketsError } = await supabase.storage.listBuckets();
+    // Get server-side client
+    const supabase = getSupabaseServer();
     
-    if (bucketsError) {
-      return NextResponse.json({
-        success: false,
-        error: 'Cannot access storage',
-        details: bucketsError,
-        test: 'list-buckets'
-      });
-    }
-
-    const recipeImagesBucket = buckets?.find(b => b.name === 'recipe-images');
-    if (!recipeImagesBucket) {
-      return NextResponse.json({
-        success: false,
-        error: 'recipe-images bucket not found',
-        availableBuckets: buckets?.map(b => b.name),
-        test: 'bucket-exists'
-      });
-    }
-
-    // Test 2: Try to upload a small test image (1x1 transparent PNG)
+    // Test 1: Try to upload a small test image (1x1 transparent PNG) directly
     const testFileName = `test-${Date.now()}.png`;
     
     // Create a minimal 1x1 transparent PNG
@@ -43,27 +24,45 @@ export async function POST(_request: NextRequest) {
     
     const blob = new Blob([pngData], { type: 'image/png' });
     
+    console.log('Testing upload to recipe-images bucket with server client...');
+    console.log('Using service role:', !!process.env.SUPABASE_SERVICE_ROLE_KEY);
+    
+    // Try uploading directly (like avatar upload does)
     const { data: uploadData, error: uploadError } = await supabase.storage
       .from('recipe-images')
       .upload(testFileName, blob, {
         contentType: 'image/png',
-        upsert: true
+        upsert: true // Like avatar upload
       });
 
     if (uploadError) {
+      console.error('Upload error:', uploadError);
       return NextResponse.json({
         success: false,
         error: uploadError.message,
         details: uploadError,
         bucket: 'recipe-images',
-        test: 'upload'
+        test: 'upload',
+        usingServiceRole: !!process.env.SUPABASE_SERVICE_ROLE_KEY,
+        hint: uploadError.message.includes('not found') 
+          ? 'The bucket might not exist. Please create it in Supabase Dashboard.' 
+          : uploadError.message.includes('policy')
+          ? 'RLS policy error. Try adding SUPABASE_SERVICE_ROLE_KEY to environment variables.'
+          : 'Unknown error - check Supabase logs'
       });
     }
 
-    // Test 3: Try to get public URL
+    console.log('Upload successful:', uploadData);
+
+    // Test 2: Try to get public URL
     const { data: urlData } = supabase.storage
       .from('recipe-images')
       .getPublicUrl(testFileName);
+
+    // Test 3: Check if we can access the avatars bucket for comparison
+    const { data: avatarTest, error: avatarError } = await supabase.storage
+      .from('avatars')
+      .list('', { limit: 1 });
 
     // Test 4: Try to delete the test file
     const { error: deleteError } = await supabase.storage
@@ -76,14 +75,23 @@ export async function POST(_request: NextRequest) {
       publicUrl: urlData.publicUrl,
       deleted: !deleteError,
       deleteError: deleteError?.message,
-      test: 'complete'
+      test: 'complete',
+      usingServiceRole: !!process.env.SUPABASE_SERVICE_ROLE_KEY,
+      avatarBucketAccessible: !avatarError,
+      comparison: {
+        recipeImages: 'Upload successful',
+        avatars: avatarError ? `Cannot access: ${avatarError.message}` : 'Accessible'
+      }
     });
 
   } catch (error: any) {
+    console.error('Test storage error:', error);
     return NextResponse.json({
       success: false,
       error: error.message || 'Unknown error',
-      test: 'exception'
+      test: 'exception',
+      stack: error.stack,
+      usingServiceRole: !!process.env.SUPABASE_SERVICE_ROLE_KEY
     });
   }
 } 
