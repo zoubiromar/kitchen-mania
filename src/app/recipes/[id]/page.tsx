@@ -7,7 +7,7 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Textarea } from '@/components/ui/textarea';
-import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
+import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
@@ -470,13 +470,13 @@ export default function RecipeDetailPage() {
         {/* Edit Recipe Dialog */}
         {editingRecipe && (
           <Dialog open={!!editingRecipe} onOpenChange={() => setEditingRecipe(null)}>
-            <DialogContent className="max-w-5xl max-h-[90vh] overflow-y-auto" aria-describedby="edit-recipe-dialog-description">
+            <DialogContent className="max-w-5xl max-h-[90vh] overflow-y-auto">
               <DialogHeader>
                 <DialogTitle>Edit Recipe</DialogTitle>
+                <DialogDescription>
+                  Edit your recipe details including title, ingredients, instructions, and image
+                </DialogDescription>
               </DialogHeader>
-              <div id="edit-recipe-dialog-description" className="sr-only">
-                Edit your recipe details including title, ingredients, instructions, and image
-              </div>
               <div className="space-y-6 mt-6">
                 {/* Basic Information */}
                 <div className="space-y-4">

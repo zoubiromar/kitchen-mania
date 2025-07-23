@@ -17,6 +17,7 @@ import { saveReceiptData } from '@/utils/localStorage';
 import { database } from '@/lib/database';
 import { Toast, useToast } from '@/components/toast';
 import { supabase } from '@/lib/supabase';
+import { areUnitsCompatible, addQuantitiesWithConversion, getBestDisplayUnit } from '@/utils/unitConversion';
 
 interface PantryItem {
   id: string;
@@ -158,6 +159,12 @@ export default function PantryPage() {
     const preferred = userProfile.preferred_units;
     const others = standardUnits.filter(unit => !preferred.includes(unit));
     return [...preferred, ...others];
+  };
+
+  // Helper to display quantity with best unit
+  const displayQuantity = (quantity: number, unit: string) => {
+    const best = getBestDisplayUnit(quantity, unit);
+    return `${best.quantity} ${best.unit}`;
   };
 
   // Load user data from database
@@ -339,6 +346,11 @@ export default function PantryPage() {
   const updateItem = async (id: string, updates: Partial<PantryItem>) => {
     if (!user) return;
     
+    // First update local state immediately for better UX
+    setPantryItems(pantryItems.map(item => 
+      item.id === id ? { ...item, ...updates } : item
+    ));
+    
     try {
       const dbUpdates: any = {};
       if ('name' in updates) dbUpdates.name = updates.name;
@@ -349,18 +361,25 @@ export default function PantryPage() {
       if ('expiryDate' in updates) dbUpdates.expiry_date = updates.expiryDate;
       
       const { error } = await database.pantry.update(id, user.id, dbUpdates);
-      if (error) throw error;
-      
-      setPantryItems(pantryItems.map(item => 
-        item.id === id ? { ...item, ...updates } : item
-      ));
+      if (error) {
+        // Check if it's a "no rows" error (item doesn't exist or wrong user)
+        const errorMessage = error.message || error.toString();
+        if (errorMessage.includes('JSON object requested') || errorMessage.includes('no) rows returned')) {
+          // Silently ignore - item might have been deleted elsewhere
+          console.log('Item not found for update:', id);
+        } else {
+          // Revert local state on actual error
+          throw error;
+        }
+      }
     } catch (error: any) {
       console.error('Error updating item:', error);
-      // Only show error toast if it's not a "no rows" error
-      const errorMessage = error?.message || error?.toString() || '';
-      if (!errorMessage.includes('JSON object requested') && !errorMessage.includes('no) rows returned')) {
-        showToast('Failed to update item', 'error');
+      // Revert the local state change
+      const originalItem = pantryItems.find(item => item.id === id);
+      if (originalItem) {
+        setPantryItems(pantryItems);
       }
+      showToast('Failed to update item', 'error');
     }
   };
 
@@ -407,15 +426,39 @@ export default function PantryPage() {
         
         data.items.forEach((parsedItem: any) => {
           if (parsedItem.exists) {
-            // Find the existing item
+            // Find the existing item with matching or compatible unit
             const existingItem = pantryItems.find(item => 
-              item.name.toLowerCase() === parsedItem.name.toLowerCase()
+              item.name.toLowerCase() === parsedItem.name.toLowerCase() &&
+              areUnitsCompatible(item.unit, parsedItem.unit)
             );
             
             if (existingItem) {
-              updates.push({
-                item: existingItem,
-                addQuantity: parsedItem.quantity
+              // Calculate the quantity to add, converting if necessary
+              const result = addQuantitiesWithConversion(
+                0, 
+                existingItem.unit, 
+                parsedItem.quantity, 
+                parsedItem.unit
+              );
+              
+              if (result) {
+                updates.push({
+                  item: existingItem,
+                  addQuantity: result.quantity
+                });
+              }
+            } else {
+              // No compatible existing item found, add as new
+              const defaultEmoji = guessEmojiForItem(parsedItem.name) || '📦';
+              const itemId = crypto.randomUUID();
+              parsedItems.push({
+                id: itemId,
+                name: parsedItem.name,
+                emoji: defaultEmoji,
+                quantity: parsedItem.quantity,
+                unit: parsedItem.unit,
+                category: parsedItem.category || 'Uncategorized',
+                purchaseDate: parsedItem.purchaseDate || new Date().toISOString().split('T')[0]
               });
             }
           } else {
@@ -534,19 +577,31 @@ export default function PantryPage() {
       const matchData = await matchResponse.json();
       const matchedItems = matchData.items || [];
       
-      // Consolidate duplicate items by name and unit
+      // Consolidate duplicate items by name and compatible units
       const consolidatedItems = matchedItems.reduce((acc: any[], item: any) => {
         const existingIndex = acc.findIndex(
           (existing) => existing.name.toLowerCase() === item.name.toLowerCase() && 
-                        existing.unit === item.unit
+                        areUnitsCompatible(existing.unit, item.unit)
         );
         
         if (existingIndex >= 0) {
-          // Item already exists, add quantities
-          acc[existingIndex].quantity += item.quantity;
-          // Update total price if both have prices
-          if (item.price !== undefined && item.price !== null) {
-            acc[existingIndex].totalPrice = (acc[existingIndex].totalPrice || 0) + (item.totalPrice || (item.price * item.quantity));
+          // Item already exists with compatible unit, add quantities with conversion
+          const result = addQuantitiesWithConversion(
+            acc[existingIndex].quantity,
+            acc[existingIndex].unit,
+            item.quantity,
+            item.unit
+          );
+          
+          if (result) {
+            acc[existingIndex].quantity = result.quantity;
+            // Update total price if both have prices
+            if (item.price !== undefined && item.price !== null) {
+              acc[existingIndex].totalPrice = (acc[existingIndex].totalPrice || 0) + (item.totalPrice || (item.price * item.quantity));
+            }
+          } else {
+            // Units not compatible, add as separate item
+            acc.push({...item});
           }
         } else {
           // New item, add to array
@@ -582,10 +637,20 @@ export default function PantryPage() {
           // Update existing item
           const existingItem = pantryItems.find(p => p.id === item.existingId);
           if (existingItem) {
-            updates.push({
-              item: existingItem,
-              addQuantity: item.quantity
-            });
+            // Calculate the quantity to add, converting if necessary
+            const result = addQuantitiesWithConversion(
+              0,
+              existingItem.unit,
+              item.quantity,
+              item.unit
+            );
+            
+            if (result) {
+              updates.push({
+                item: existingItem,
+                addQuantity: result.quantity
+              });
+            }
           }
         } else {
           // Create new item

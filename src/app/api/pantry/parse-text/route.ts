@@ -49,6 +49,8 @@ CRITICAL RULES:
 5. New items: exists=false, proper capitalization
 6. Default unit: "pcs" for countable items
 7. ${unitPreferences}
+8. IMPORTANT: Extract the exact unit as written. Do NOT convert units (e.g., keep "kg" as "kg", not "g")
+9. Common units: g, kg, lbs, oz, ml, l, liters, cups, pcs, tbsp, tsp
 
 EXAMPLES:
 Input: "2 oil litres, 5 eggs and 1 kg of butter"
@@ -56,6 +58,12 @@ Output: [
   {"exists":false,"name":"Oil","quantity":2,"unit":"litres","category":"Condiments","purchaseDate":"${today}"},
   {"exists":true,"name":"Eggs","quantity":5,"unit":"pcs","category":"Dairy","purchaseDate":"${today}"},
   {"exists":false,"name":"Butter","quantity":1,"unit":"kg","category":"Dairy","purchaseDate":"${today}"}
+]
+
+Input: "250g meat, 2kg meat"
+Output: [
+  {"exists":false,"name":"Meat","quantity":250,"unit":"g","category":"Meat","purchaseDate":"${today}"},
+  {"exists":false,"name":"Meat","quantity":2,"unit":"kg","category":"Meat","purchaseDate":"${today}"}
 ]
 
 RETURN ONLY JSON ARRAY:${existingItemsText}`;
