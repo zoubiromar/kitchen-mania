@@ -56,7 +56,7 @@ export default function RecipesPage() {
         image: recipe.image_url,
         prepTime: recipe.prep_time ? `${recipe.prep_time} min` : undefined,
         servings: recipe.servings ? `${recipe.servings} servings` : undefined,
-        tags: []
+        tags: recipe.tags || []
       }));
       
       setRecipes(formattedRecipes);
