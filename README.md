@@ -1,157 +1,87 @@
-# KitchenMania - Smart Pantry & Recipe Management
+# KitchenMania
 
-A modern web application for managing your pantry inventory, tracking prices, and generating AI-powered recipes based on what you have available.
+A pantry and recipe webapp that knows what's in your kitchen. Snap a receipt, get your groceries logged automatically, then ask the app what to cook with what you have.
+
+## Demo
+
+Live: [kitchen-mania.vercel.app](https://kitchen-mania.vercel.app)
 
 ## Features
 
-- **Smart Pantry Management**: Track items with quantities, expiration dates, and automatic emoji generation
-- **AI-Powered Features**:
-  - Receipt scanning with image recognition (GPT-4o vision)
-  - Bulk text parsing for quick item addition
-  - Intelligent recipe generation based on available ingredients
-  - Automatic emoji selection for items
-- **Price Tracking**: Monitor price history and trends across different merchants
-- **Recipe Management**: Save, rate, and organize recipes with ingredient tracking
-- **Unit System Support**: Toggle between Imperial (lb/oz) and Metric (kg/g) units
-- **Responsive Design**: Works seamlessly on desktop and mobile devices
+- Pantry tracking with quantities, expiration dates, and auto-assigned emojis
+- Receipt scanning (GPT-4o vision) that extracts items, prices, and merchant
+- Bulk text parsing for quick item entry
+- AI recipe generation from whatever's currently in your pantry
+- Recipe image generation via DALL-E, stored permanently in Supabase
+- Price history per item per merchant
+- Imperial / metric unit toggle
+- Per-user accounts with cloud sync (Supabase Auth + Postgres)
 
-## Tech Stack
+## Tech stack
 
-- **Frontend**: Next.js 15.4.2 with TypeScript
-- **Styling**: Tailwind CSS v4
-- **UI Components**: shadcn/ui with Radix UI
-- **AI Integration**: OpenAI API (GPT-3.5-turbo, GPT-4o vision, DALL-E)
-- **State Management**: React hooks and localStorage
-- **Deployment**: Optimized for Vercel
+- Next.js 15.4 (App Router) + React 19 + TypeScript
+- Tailwind CSS v4, shadcn/ui, Radix primitives
+- Supabase (Postgres, Auth, Storage)
+- OpenAI API: GPT-3.5-turbo (text), GPT-4o (vision), DALL-E (images)
+- Deployed on Vercel
 
-## Prerequisites
+## Getting started
 
-- Node.js 18+ and npm/yarn
-- OpenAI API key (for AI features)
+Requirements: Node 18+, a Supabase project, and (optional) an OpenAI API key.
 
-## Getting Started
-
-1. **Clone the repository:**
+1. Clone and install:
    ```bash
-   git clone https://github.com/yourusername/KitchenMania.git
-   cd KitchenMania
-   ```
-
-2. **Install dependencies:**
-   ```bash
+   git clone https://github.com/zoubiromar/kitchen-mania.git
+   cd kitchen-mania
    npm install
    ```
 
-3. **Set up environment variables:**
-   - Copy `.env.example` to `.env.local`
-   - Add your OpenAI API key:
-     ```
-     OPENAI_API_KEY=your_openai_api_key_here
-     ```
+2. Create `.env.local` in the project root:
+   ```
+   NEXT_PUBLIC_SUPABASE_URL=your_supabase_project_url
+   NEXT_PUBLIC_SUPABASE_ANON_KEY=your_supabase_anon_key
+   NEXT_PUBLIC_APP_URL=http://localhost:3000
+   OPENAI_API_KEY=your_openai_key
+   ```
 
-4. **Run the development server:**
+   Without `OPENAI_API_KEY`, manual entry and price tracking still work. AI features fall back to mock data.
+
+3. Set up the database. In the Supabase SQL editor, run:
+   - `supabase-schema.sql` (tables: `profiles`, `pantry_items`, `recipes`, `price_tracker_items`, plus RLS policies)
+   - `supabase_storage_setup.sql` (creates the `recipe-images` storage bucket and its policies)
+
+4. Run the dev server:
    ```bash
    npm run dev
    ```
+   Open [http://localhost:3000](http://localhost:3000).
 
-5. **Open [http://localhost:3000](http://localhost:3000) in your browser**
+## Deploying
 
-## Deployment to Vercel
+Push to a GitHub repo, import it on Vercel, and set the same four env vars in the Vercel project settings. The included `vercel.json` already raises the function timeout to 30s for the receipt-parse, recipe-recommend, and image-generation routes.
 
-### Option 1: Deploy with Vercel CLI
+In your Supabase project's Auth settings, set:
+- Site URL: your production URL
+- Redirect URLs: include `<your-url>/auth/confirm` so email confirmation lands on the right page
 
-1. **Install Vercel CLI:**
-   ```bash
-   npm i -g vercel
-   ```
-
-2. **Deploy:**
-   ```bash
-   vercel
-   ```
-
-3. **Set environment variables:**
-   ```bash
-   vercel env add OPENAI_API_KEY
-   ```
-
-### Option 2: Deploy via GitHub
-
-1. **Push to GitHub:**
-   ```bash
-   git add .
-   git commit -m "Initial commit"
-   git push origin main
-   ```
-
-2. **Connect to Vercel:**
-   - Go to [vercel.com](https://vercel.com)
-   - Import your GitHub repository
-   - Configure environment variables in project settings
-   - Deploy!
-
-## Environment Variables
-
-| Variable | Description | Required |
-|----------|-------------|----------|
-| `OPENAI_API_KEY` | Your OpenAI API key for AI features | Yes (for AI features) |
-| `NEXT_PUBLIC_APP_URL` | Your app's URL (for production) | No |
-
-## Project Structure
+## Project structure
 
 ```
-KitchenMania/
-├── src/
-│   ├── app/                 # Next.js app router pages
-│   │   ├── api/            # API routes
-│   │   ├── pantry/         # Pantry management page
-│   │   ├── recipes/        # Recipe pages
-│   │   └── tracker/        # Price tracker page
-│   ├── components/         # Reusable UI components
-│   ├── lib/               # Utility functions
-│   └── utils/             # Helper utilities
-├── public/                # Static assets
-└── package.json          # Dependencies and scripts
+src/
+  app/
+    api/         # API routes (OpenAI calls, receipt parsing, image generation)
+    pantry/      # Pantry page
+    recipes/     # Recipe pages
+    tracker/     # Price tracker
+  components/    # UI components
+  lib/           # Supabase client, database helpers, image storage utils
+  utils/         # Misc helpers
 ```
 
-## Key Features Documentation
+## Why I built this
 
-### Pantry Management
-- Add items manually or via bulk text/receipt scanning
-- Track quantities with decimal support
-- Set expiration dates and purchase dates
-- Organize by categories with drag-and-drop
-
-### Recipe Generation
-- Select specific items to use in recipes
-- Set serving sizes and dietary preferences
-- AI generates 2-3 recipe suggestions
-- Automatically deducts used ingredients
-
-### Price Tracking
-- Historical price data from receipts
-- Price trend analysis
-- Filter by merchant and date
-- Edit mode for reordering and deletion
-
-### Receipt Scanning
-- Upload receipt images
-- AI extracts items, prices, and merchant info
-- Supports multiple languages (auto-translation)
-- Matches existing pantry items
-
-## Running Without OpenAI API
-
-The app includes fallback functionality when no API key is provided:
-- Manual item entry still works
-- Basic recipe templates are available
-- Price tracking functions normally
-- Receipt scanning shows mock data
-
-## Contributing
-
-Feel free to submit issues and enhancement requests!
+I wanted a single project that exercised the full stack I keep reaching for at work: vision and LLM calls behind clean API routes, a real auth-gated database, image storage that doesn't break when DALL-E URLs expire, and a UI that doesn't feel like a CRUD app. KitchenMania is also genuinely useful: I run out of groceries less now, and "what can I make tonight" is a one-tap question instead of a fridge-staring contest.
 
 ## License
 
-MIT License - feel free to use this project for personal or commercial purposes.
+MIT. See `LICENSE`.
